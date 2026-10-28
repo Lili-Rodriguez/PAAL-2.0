@@ -48,13 +48,25 @@ new shared repository.
 - `No specific needs` is an acceptable needs/preferences response.
 - The Today page lets you choose the child whose topics should guide the demo.
 - Existing one-child browser profiles are migrated when loaded.
-- Family details, saved ideas, and feedback persist in this browser's localStorage
-  under `paal-prototype`. They are not synced across teammates or devices.
+- Family details, saved ideas, feedback, reading status, and weekly family goals persist in this
+  browser's localStorage under `paal-prototype`. They are not synced across
+  teammates or devices.
+- The Progress tab lets parents set and complete weekly Individual and Family goals.
+  Goals roll over on Monday; previous weeks are retained locally. Resource reads
+  are self-reported; the app cannot verify activity on external resource sites.
+- Progress includes a Learning library with short parenting lessons, source links,
+  interactive reflection choices, private lesson comments, and locally saved
+  completion status. Recommendation detail pages include links to the institutional
+  sources that informed each example. Lesson comments and answers stay in this
+  browser and are not shared with other parents.
+- The Today form offers browser speech recognition where supported. Microphone
+  permission is required; typing remains available as a fallback.
 - Reset demo clears the local prototype state after confirmation.
-- Recommendations are sample content, not a live AI service. Matching uses
-  topic keywords and a subset of the circumstance controls. Free-text needs
-  and preferences are stored for exploration but do not produce individualized
-  advice. The example library is not clinically validated.
+- Recommendations are static examples, not a live AI service or research database.
+  Matching uses topic keywords and a subset of circumstance controls. Lesson and
+  recommendation references are linked for readers to review; free-text needs and
+  preferences do not produce individualized academic or clinical advice. Evidence
+  summaries are brief and should be interpreted in the context of each family.
 - CSS requests Helvetica, then Helvetica Neue, Arial, and the system sans-serif
   fallback. A device without Helvetica uses the next available font. No
   proprietary font files are distributed.
@@ -67,5 +79,3 @@ JavaScript syntax and execution checks covered the opening page, migration of
 legacy family data, multiple children, family data collection, required fields,
 custom topics, active-child selection, topic matching, and all screen renders.
 A live browser visual review was not available in the authoring environment.
-# PAAL-2.0
-# PAAL-2.0
