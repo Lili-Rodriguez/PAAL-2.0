@@ -16,10 +16,12 @@ A local server is recommended for predictable browser storage behavior.
 ## Files to edit
 
 - `dist/index.html`: document title, metadata, and asset references.
-- `dist/styles.css`: Helvetica font stack, colors, responsive layouts, and components.
+- `dist/styles.css`: system font stack, colors, responsive layouts, and components.
 - `dist/app.js`: screens, form fields, help topics, sample ideas, state, and interactions.
 
-The prototype opens on **About your family** on each page load.
+The prototype opens on the **Family** dashboard on each page load. Choose
+**Edit family** to add or update family details; **Get started** from the welcome
+screen opens the family editor when details are still incomplete.
 In `app.js`, `helpTopics` contains 21 support topics; `familyMarkup()` renders
 the family editor; `familyErrors()` validates each child's required topics and
 needs; `ideas` contains the sample suggestions; `render()` selects a screen;
@@ -47,19 +49,22 @@ new shared repository.
   existing approaches. 'Something else' opens a required custom topic field.
 - `No specific needs` is an acceptable needs/preferences response.
 - The Today page lets you choose the child whose topics should guide the demo.
+- Main navigation follows the Today, Learn, Village, and Family layout. Learn opens the lesson library (with weekly goals available as a secondary view); Village opens saved ideas and resources.
+- The Family tab shows selectable child profiles, recent feedback, weekly goals, and additional ideas to explore. Edit family details or add another child from that screen.
 - Existing one-child browser profiles are migrated when loaded.
 - Family details, saved ideas, feedback, reading status, and weekly family goals persist in this
   browser's localStorage under `paal-prototype`. They are not synced across
   teammates or devices.
-- The Progress tab lets parents set and complete weekly Individual and Family goals.
+- The Learn tab lets parents explore lessons and set or complete weekly Individual and Family goals.
   Goals roll over on Monday; previous weeks are retained locally. Resource reads
   are self-reported; the app cannot verify activity on external resource sites.
-- Progress includes a Learning library with short parenting lessons, source links,
+- The Learn tab includes a library with short parenting lessons, source links,
   interactive reflection choices, private lesson comments, and locally saved
   completion status. Recommendation detail pages include links to the institutional
   sources that informed each example. Lesson comments and answers stay in this
   browser and are not shared with other parents.
-- The Today form offers browser speech recognition where supported. Microphone
+- The Today form offers browser speech recognition where supported. Interim
+  speech appears as you speak and can be edited before continuing. Microphone
   permission is required; typing remains available as a fallback.
 - Reset demo clears the local prototype state after confirmation.
 - Recommendations are static examples, not a live AI service or research database.
