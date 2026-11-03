@@ -42,6 +42,32 @@ This export includes no account credentials, hosting identity, or user-entered
 family data. The owner-connected source repository is separate from your
 new shared repository.
 
+## Supabase backend foundation
+
+The initial Supabase migration is
+[`supabase/migrations/20261103220000_initial_shared_care.sql`](./supabase/migrations/20261103220000_initial_shared_care.sql).
+It defines accounts, families, child profiles and care guides, caregiver
+permissions, care blocks, handoff updates, help requests, and saved toolkit
+ideas/feedback. Row-level security checks active family membership and the
+per-child permission scopes (`guide`, `plan`, `toolkit`, `updates`, and
+`requests`). Care guide details are stored separately from basic child details
+so guide access does not automatically grant access to care plans or toolkit
+records.
+
+To try the schema, create a Supabase project and run that migration in its SQL
+Editor. The `create_family` database function creates a family and its owner
+membership together; `accept_help_request` atomically accepts an open request
+for the signed-in caregiver. Do not put a Supabase service-role key in the
+browser or in this repository; a public anon/publishable key is intended for
+client use only when paired with these row-level policies.
+
+This is schema groundwork, not a live connection: the static app still uses
+browser `localStorage` and has no Supabase sign-in, data synchronization, or
+caregiver invitation/acceptance flow. Applying the migration alone will not
+share existing demo data or deliver messages to caregivers. Those require
+additional application integration and a trusted invitation flow before real
+caregiver access should be enabled.
+
 ## Behavior and limitations
 
 - Family units support multiple children, each with an optional nickname,
@@ -49,8 +75,10 @@ new shared repository.
   existing approaches. 'Something else' opens a required custom topic field.
 - `No specific needs` is an acceptable needs/preferences response.
 - The Today page lets you choose the child whose topics should guide the demo.
-- Main navigation follows the Today, Learn, Village, and Family layout. Learn opens the lesson library (with weekly goals available as a secondary view); Village opens saved ideas and resources.
+- Main navigation follows the Today, Learn, Care, and Family layout. Learn opens the lesson library (with weekly goals available as a secondary view). Care combines today’s caregiver coordination with saved ideas, past attempts, and trusted resources.
 - The Family tab shows selectable child profiles, recent feedback, weekly goals, and additional ideas to explore. Edit family details or add another child from that screen.
+- Each child can have a caregiver guide with their needs, calming strategies, and an easy game to play. Caregivers can share or copy the guide into a message; updates remain local and must be shared again.
+- The Care tab offers browser-local caregiver permission previews, today's care blocks, handoff updates, and help requests with a demo acceptance action. Caregivers can be granted Family toolkit access for selected children; the toolkit shows who has that permission. Names and permissions are not accounts: no invitations, posts, or requests reach another person.
 - Existing one-child browser profiles are migrated when loaded.
 - Family details, saved ideas, feedback, reading status, and weekly family goals persist in this
   browser's localStorage under `paal-prototype`. They are not synced across
@@ -75,12 +103,15 @@ new shared repository.
 - CSS requests Helvetica, then Helvetica Neue, Arial, and the system sans-serif
   fallback. A device without Helvetica uses the next available font. No
   proprietary font files are distributed.
-- This prototype has no account system, backend, shared family accounts,
-  production privacy controls, or clinical decision support.
+- The app has no connected account system or live caregiver sync yet. Care-tab
+  permissions and interactions remain local demo previews; no invitations,
+  updates, or help requests are delivered to caregivers. The Supabase migration
+  is an unconnected schema foundation, not production privacy controls or
+  clinical decision support.
 
 ## Checks on this revision
 
-JavaScript syntax and execution checks covered the opening page, migration of
-legacy family data, multiple children, family data collection, required fields,
-custom topics, active-child selection, topic matching, and all screen renders.
-A live browser visual review was not available in the authoring environment.
+Browser checks covered the opening page, family and Care navigation, local
+caregiver permissions, care-block creation and editing, handoff updates, help
+request acceptance, toolkit tabs and search, saved-idea persistence, resource
+access, and a 390px mobile layout. Care-tab changes remain local demo data.
