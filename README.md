@@ -19,10 +19,15 @@ To try it on a phone, use your computer's local IP address (same Wi-Fi), e.g.
 - **Sign-up** (first visit): your name, your children (name and age), and where you
   struggle: putting them to sleep, taking them off screens, controlling temper
   tantrums, or "I just want to learn".
-- **Family** (home): your children, a colorful lesson-progress ring, PAAL's
-  research-based tips for the struggles you chose, and a shortcut to talk to PAAL.
+- **Home**: your children (each with a mini PAAL character), Talk to PAAL, a
+  colorful lesson-progress ring, a Schedule care card, and PAAL's research-based
+  tips for the struggles you chose.
 - **Learn**: lessons with a progress bar at the top. Mark a lesson complete to fill
   in the progress.
+- **Care**: ported from Lili's Care page (her commit `fcd8050`): today's care blocks,
+  handoff updates, help requests, caregiver permissions, and a shareable caregiver
+  guide. Local demo only. Nothing is sent to anyone. Her "Family toolkit" section
+  was left out because it was the old Village content.
 - **PAAL**: a chat box with the PAAL mascot peeking over it. Answers are
   **scripted**: PAAL matches keywords (sleep, screens, tantrums, learning) to
   prepared, research-based answers. It is not a live AI.
@@ -39,13 +44,13 @@ To try it on a phone, use your computer's local IP address (same Wi-Fi), e.g.
 - `dist/app.js`: everything the app says and does, in six labeled sections:
   1. **CONTENT**: `STRUGGLES` (sign-up options, answers, chat keywords) and `LESSONS`
   2. **STATE**: saved data
-  3. **HELPERS**: utilities and the `mascot()` character
-  4. **SCREENS**: one function per page (`signupScreen`, `familyScreen`, `learnScreen`, `lessonScreen`, `paalScreen`)
+  3. **HELPERS**: utilities and the `paal()` character (the purple friend from Lili's illustration)
+  4. **SCREENS**: one function per page (`signupScreen`, `homeScreen`, `learnScreen`, `lessonScreen`, `careScreen`, `paalScreen`)
   5. **CHAT**: `paalReply()` decides how PAAL answers
-  6. **ROUTER**: page addresses (`#family`, `#learn`, `#learn/<lesson>`, `#paal`, `#edit`)
+  6. **ROUTER**: page addresses (`#home`, `#learn`, `#learn/<lesson>`, `#care`, `#paal`, `#edit`)
 - `dist/styles.css`: colors and fonts at the top (`:root` and the `.tone-*` colors),
   then one section per page.
-- `dist/index.html`: page title. Bump `?v=9` after editing CSS/JS so phones
+- `dist/index.html`: page title. Bump `?v=10` after editing CSS/JS so phones
   don't show a cached copy.
 - `index.html` (repo root): only redirects to `dist/` for GitHub Pages.
 

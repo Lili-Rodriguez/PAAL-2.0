@@ -204,16 +204,28 @@ const LESSONS = [
 // A different key from Lili's version ('paal-prototype'), so the two never clash.
 const STORAGE_KEY = 'paal-andres';
 
-// profile: { parentName, children: [{ id, name, age }], struggles: ['sleep', ...] }
+// profile: { parentName, children: [{ id, name, age, needs?, calm?, game? }], struggles: ['sleep', ...] }
 // completed: lesson ids · chat: [{ from: 'me', text } | { from: 'paal', html }]
+// care: Lili's Care data – caregivers, care blocks, handoff updates, help requests
+// activeChildId: the child picked on the Care page
 function emptyState() {
-  return { profile: null, completed: [], chat: [] };
+  return {
+    profile: null,
+    completed: [],
+    chat: [],
+    care: { caregivers: [], blocks: [], updates: [], requests: [] },
+    activeChildId: null
+  };
 }
 
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    return saved && typeof saved === 'object' ? { ...emptyState(), ...saved } : emptyState();
+    if (!saved || typeof saved !== 'object') return emptyState();
+    const loaded = { ...emptyState(), ...saved };
+    // Older saves (before Care existed) won't have every list
+    loaded.care = { ...emptyState().care, ...loaded.care };
+    return loaded;
   } catch {
     return emptyState();
   }
@@ -267,18 +279,28 @@ function toast(message) {
   setTimeout(() => { $('#announcer').innerHTML = ''; }, 3000);
 }
 
-// Lili's lavender mascot, built from spans so it can be any size.
-// Extra classes: mascot-sm / mascot-lg / mascot-xl, mascot-wave, mascot-bob
-function mascot(classes = '') {
-  return `<div class="mascot ${classes}" aria-hidden="true">
-    <span class="mascot-eye left"></span><span class="mascot-eye right"></span>
-    <span class="mascot-cheek left"></span><span class="mascot-cheek right"></span>
-    <span class="mascot-mouth"></span>
-  </div>`;
+// The PAAL character: the tall purple friend from Lili's original illustration
+// (same body outline, eyes and legs as her art() drawing).
+// Sizes: paal-xs / paal-sm / paal-md / paal-lg / paal-xl (see styles.css)
+// wave = true adds a waving arm.
+function paal(classes = '', wave = false) {
+  return `<svg class="paal ${classes}" viewBox="84 64 184 250" aria-hidden="true">
+    <path class="paal-body" d="M100 297C96 236 119 179 148 133C166 104 192 66 221 74C257 82 251 114 227 147C198 187 191 244 192 296Z"/>
+    <g class="paal-eyes">
+      <ellipse cx="220" cy="103" rx="10" ry="13" fill="#fff"/><ellipse cx="240" cy="112" rx="10" ry="13" fill="#fff"/>
+      <circle cx="224" cy="108" r="5" fill="#20251f"/><circle cx="241" cy="117" r="5" fill="#20251f"/>
+    </g>
+    <g class="paal-lines">
+      <path d="M205 146L214 149"/>
+      <path d="M112 286L98 308L127 308M182 286L192 307L212 309"/>
+      ${wave ? '<path d="M160 170Q150 214 180 224"/><path class="paal-wave" d="M206 172Q236 168 250 136"/>' : ''}
+    </g>
+  </svg>`;
 }
 
 const ICONS = {
-  family: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M16 5.5a3 3 0 0 1 0 5.8M17 14a5 5 0 0 1 3.5 4.8"/></svg>',
+  home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
+  care: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18M12 13v5M9.5 15.5h5"/></svg>',
   learn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v14M12 7C9 4.5 5.5 4 3 5v14c3-1 6.5-.5 9 2m0-14c3-2.5 6.5-3 9-2v14c-3-1-6.5-.5-9 2"/></svg>',
   paal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M9 11h.01M15 11h.01"/></svg>'
 };
@@ -287,24 +309,24 @@ const ICONS = {
 /* ---------- 4. SCREENS ---------- */
 
 // Page frame: sidebar on desktop, bottom tabs on phones.
-// Order requested: Family (left) · Learn · PAAL (right).
+// Order requested: Home (left) · Learn · Care · PAAL (right).
 function shell(active, content) {
   const nav = mobile => `<nav class="${mobile ? 'mobile-nav' : 'side-nav'}" aria-label="Main navigation">
-    ${[['family', 'Family'], ['learn', 'Learn'], ['paal', 'PAAL']].map(([page, label]) =>
+    ${[['home', 'Home'], ['learn', 'Learn'], ['care', 'Care'], ['paal', 'PAAL']].map(([page, label]) =>
       `<a class="nav-item" href="#${page}" ${page === active ? 'aria-current="page"' : ''}>${ICONS[page]}<span>${label}</span></a>`
     ).join('')}
   </nav>`;
 
   return `<div class="layout">
     <aside class="sidebar">
-      <a class="logo" href="#family">paal</a>
+      <a class="logo" href="#home">paal</a>
       ${nav(false)}
       <div class="side-foot">
         <p>A few more possibilities.<br>A little more confidence.</p>
         <button class="reset" id="reset">Reset demo</button>
       </div>
     </aside>
-    <header class="topbar"><a class="logo" href="#family">paal</a><span class="tagline">Your family. Your way.</span></header>
+    <header class="topbar"><a class="logo" href="#home">paal</a><span class="tagline">Your family. Your way.</span></header>
     <main class="main">${content}</main>
     ${nav(true)}
   </div>`;
@@ -347,7 +369,7 @@ function signupScreen() {
 
   return `<div class="signup">
     <div class="signup-intro">
-      ${mascot('mascot-xl mascot-wave')}
+      ${paal('paal-lg', true)}
       <p class="eyebrow">${editing ? 'Your family' : 'Welcome to paal'}</p>
       <h1>${editing ? 'Edit your family.' : 'Let’s get to know your family.'}</h1>
       <p class="muted">A few quick questions so PAAL can suggest ideas that fit you. Everything stays on this device.</p>
@@ -417,7 +439,7 @@ function bindSignup() {
   });
 
   const cancel = $('#cancel-edit');
-  if (cancel) cancel.onclick = () => { location.hash = '#family'; };
+  if (cancel) cancel.onclick = () => { location.hash = '#home'; };
 
   $('#signup-form').onsubmit = event => {
     event.preventDefault();
@@ -432,14 +454,15 @@ function bindSignup() {
     }
     const isNew = !state.profile;
     state.profile = draft;
+    pruneCare();
     save();
-    location.hash = '#family';
+    location.hash = '#home';
     toast(isNew ? `Welcome to PAAL, ${state.profile.parentName}!` : 'Family details saved');
   };
 }
 
 
-/* Family (home page) */
+/* Home */
 
 // A ring split into one colored slice per lesson; slices fill in as lessons are completed.
 function progressRing() {
@@ -462,24 +485,42 @@ function progressMessage(done, total) {
   return 'Great start! Every lesson adds a new idea to your toolbox.';
 }
 
-function familyScreen() {
+// Today's care blocks for every child, earliest first
+function todaysBlocks() {
+  return state.care.blocks
+    .filter(b => b.date === todayKey())
+    .sort((a, b) => a.time.localeCompare(b.time));
+}
+
+function homeScreen() {
   const p = state.profile;
   const next = LESSONS.find(l => !isDone(l.id));
   const tips = STRUGGLES.filter(s => p.struggles.includes(s.id));
+  const blocks = todaysBlocks();
+  const nextBlock = blocks.find(b => b.time >= new Date().toTimeString().slice(0, 5)) || blocks[0];
+  const childName = id => p.children.find(c => c.id === id)?.name || '';
 
   return `
     <header class="page-head">
-      <div><p class="eyebrow">Your family</p><h1>Hi, ${esc(p.parentName)}.</h1></div>
+      <div><p class="eyebrow">Home</p><h1>Hi, ${esc(p.parentName)}.</h1></div>
       <a class="btn ghost" href="#edit">Edit family</a>
     </header>
 
     <section class="children-grid" aria-label="Your children">
       ${p.children.map((c, i) => `<article class="child-card tone-${CHILD_TONES[i % CHILD_TONES.length]}">
-        <span class="avatar">${esc(c.name.charAt(0).toUpperCase())}</span>
+        ${paal('paal-sm')}
         <div><h2>${esc(c.name)}</h2><p>${ageLabel(c.age)}</p></div>
       </article>`).join('')}
-      <a class="child-card add-child" href="#edit">+ Add a child</a>
     </section>
+
+    <a class="card talk-card" href="#paal">
+      ${paal('paal-md', true)}
+      <div>
+        <h2>Talk to PAAL</h2>
+        <p>Describe what’s going on with ${esc(childNames())} and get ideas grounded in research.</p>
+      </div>
+      <span class="btn primary">Start a chat</span>
+    </a>
 
     <div class="home-grid">
       <section class="card progress-card">
@@ -495,14 +536,15 @@ function familyScreen() {
         </div>
       </section>
 
-      <a class="card talk-card" href="#paal">
-        ${mascot('mascot-lg mascot-wave')}
-        <div>
-          <h2>Talk to PAAL</h2>
-          <p>Describe what’s going on with ${esc(childNames())} and get ideas grounded in research.</p>
-          <span class="btn primary">Start a chat</span>
-        </div>
-      </a>
+      <section class="card care-card">
+        <span class="care-icon" aria-hidden="true">${ICONS.care}</span>
+        <h2>Schedule care</h2>
+        <p class="muted">${blocks.length
+          ? `${blocks.length} care block${blocks.length > 1 ? 's' : ''} today. Next: <strong>${formatTime(nextBlock.time)} · ${esc(nextBlock.title)}</strong>
+             for ${esc(childName(nextBlock.childId))}${nextBlock.caregiverId ? ` with ${esc(caregiverName(nextBlock.caregiverId))}` : ''}.`
+          : 'Nothing scheduled for today yet. Plan pickups, naps and handoffs with the people who help you.'}</p>
+        <a class="btn primary" href="#care">Schedule care</a>
+      </section>
     </div>
 
     <section>
@@ -579,6 +621,369 @@ function bindLesson(lesson) {
 }
 
 
+/* Care
+   Ported from Lili's Care page (her commit fcd8050) and rewritten in this file's
+   style: care blocks, handoff updates, help requests, caregiver permissions and a
+   shareable caregiver guide. It is a local demo: nothing is sent to anyone.
+   (Her "Family toolkit" part is left out because it was the Village content.) */
+
+const CARE_SCOPES = [
+  ['plan', 'Today’s care plan'],
+  ['guide', 'Child care guide'],
+  ['updates', 'Handoff updates'],
+  ['requests', 'Help requests']
+];
+
+let editingBlockId = null; // the care block being edited, if any
+
+const uid = prefix => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+
+// '2026-11-03' for today, in local time
+function todayKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+// '15:30' -> '3:30 PM'
+function formatTime(hhmm) {
+  if (!hhmm) return '';
+  const [h, m] = hhmm.split(':').map(Number);
+  return new Date(2000, 0, 1, h, m).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+
+function activeChild() {
+  const kids = state.profile.children;
+  return kids.find(c => c.id === state.activeChildId) || kids[0];
+}
+
+function caregiverName(id) {
+  return state.care.caregivers.find(p => p.id === id)?.name || 'no one assigned';
+}
+
+// Caregivers allowed to see `scope` for this child (optionally only the assigned one)
+function carePeople(scope, childId, assignedId = '') {
+  return state.care.caregivers.filter(p =>
+    p.permissions.includes(scope) && p.childIds.includes(childId) && (!assignedId || p.id === assignedId));
+}
+
+function careAudience(scope, childId, assignedId = '') {
+  const people = carePeople(scope, childId, assignedId);
+  return people.length ? people.map(p => esc(p.name)).join(', ') : 'No caregivers selected';
+}
+
+// After Edit family: drop care records for children who were removed
+function pruneCare() {
+  const ids = state.profile.children.map(c => c.id);
+  for (const key of ['blocks', 'updates', 'requests']) {
+    state.care[key] = state.care[key].filter(item => ids.includes(item.childId));
+  }
+  state.care.caregivers.forEach(p => { p.childIds = p.childIds.filter(id => ids.includes(id)); });
+}
+
+function caregiverGuide(child) {
+  return `A quick guide for caring for ${child.name} (${ageLabel(child.age).toLowerCase()})
+
+What they need: ${child.needs?.trim() || 'Not added yet'}
+What helps them feel calm: ${child.calm?.trim() || 'Not added yet'}
+An easy game to play: ${child.game?.trim() || 'Not added yet'}
+
+Shared by their caregiver. Please check with their family about anything that may have changed.`;
+}
+
+function careScreen() {
+  const kids = state.profile.children;
+  const child = activeChild();
+  const blocks = state.care.blocks
+    .filter(b => b.childId === child.id && b.date === todayKey())
+    .sort((a, b) => a.time.localeCompare(b.time));
+  const updates = state.care.updates.filter(u => u.childId === child.id).slice().reverse();
+  const requests = state.care.requests.filter(r => r.childId === child.id).slice().reverse();
+  const editing = state.care.blocks.find(b => b.id === editingBlockId);
+  const planPeople = carePeople('plan', child.id);
+  const requestPeople = carePeople('requests', child.id);
+
+  const checks = (name, items, selected) => items.map(([value, label]) =>
+    `<label class="check"><input type="checkbox" name="${name}" value="${esc(value)}" ${selected.includes(value) ? 'checked' : ''}><span>${esc(label)}</span></label>`
+  ).join('');
+  const childItems = kids.map(c => [c.id, c.name]);
+
+  const blockList = blocks.length ? blocks.map(b => `<article class="record">
+      <span class="record-time">${formatTime(b.time)}</span>
+      <div class="record-main">
+        <h4>${esc(b.title)}</h4>
+        ${b.details ? `<p>${esc(b.details)}</p>` : ''}
+        <small>Caregiver: ${esc(caregiverName(b.caregiverId))} · Can see this: ${careAudience('plan', child.id, b.caregiverId)}</small>
+      </div>
+      <div class="record-actions">
+        <button type="button" class="link-btn" data-edit-block="${esc(b.id)}">Edit</button>
+        <button type="button" class="link-btn danger" data-delete-block="${esc(b.id)}">Remove</button>
+      </div>
+    </article>`).join('') : '<p class="empty">No care blocks yet. Add who’s doing what and when for today.</p>';
+
+  const updateList = updates.length ? updates.map(u => `<article class="record note">
+      <div class="record-main">
+        <h4>${esc(u.kind)} <time>${new Date(u.createdAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</time></h4>
+        <p>${esc(u.text)}</p>
+        <small>Can see this: ${careAudience('updates', child.id)}</small>
+      </div>
+    </article>`).join('') : '<p class="empty">No handoff updates yet. Post a short note for the next caregiver.</p>';
+
+  const requestList = requests.length ? requests.map(r => `<article class="record ${r.status === 'accepted' ? 'accepted' : ''}">
+      <div class="record-main">
+        <h4>${r.status === 'accepted' ? '✓ Accepted in this demo' : 'Help requested'}${r.time ? ` <time>by ${formatTime(r.time)}</time>` : ''}</h4>
+        <p>${esc(r.text)}</p>
+        <small>Can see this: ${careAudience('requests', child.id, r.caregiverId)}</small>
+      </div>
+      ${r.status === 'open' ? `<button type="button" class="btn ghost small" data-accept="${esc(r.id)}">Accept in demo</button>` : ''}
+    </article>`).join('') : '<p class="empty">No help requests yet. Ask for a hand with a specific part of today.</p>';
+
+  const caregiverList = state.care.caregivers.length ? state.care.caregivers.map(p => `<article class="caregiver">
+      <div class="caregiver-head">
+        <strong>${esc(p.name)}</strong>
+        <button type="button" class="link-btn danger" data-remove-caregiver="${esc(p.id)}">Remove</button>
+      </div>
+      <div class="caregiver-groups">
+        <fieldset><legend>Children</legend>${checks('child-' + p.id, childItems, p.childIds)}</fieldset>
+        <fieldset><legend>Can see</legend>${checks('permission-' + p.id, CARE_SCOPES, p.permissions)}</fieldset>
+      </div>
+    </article>`).join('') + '<button type="button" id="save-permissions" class="btn ghost">Save permissions</button>'
+    : '<p class="empty">No caregivers yet. Add a name to preview who could see what. No account is created and no invitation is sent.</p>';
+
+  const caregiverSelect = (people, selectedId, emptyLabel) => `<select name="caregiver">
+      ${people.map(p => `<option value="${esc(p.id)}" ${p.id === selectedId ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+      <option value="" ${!people.some(p => p.id === selectedId) ? 'selected' : ''}>${emptyLabel}</option>
+    </select>`;
+
+  return `
+    <header class="page-head">
+      <div>
+        <p class="eyebrow">Care · ${new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+        <h1>Care, in sync.</h1>
+        <p class="muted lead">Make today’s handoffs easier with a simple care plan, quick updates, and specific requests for help.</p>
+      </div>
+    </header>
+
+    <p class="notice"><strong>Local demo only.</strong> Caregivers and activity are saved only in this browser.
+      No invitation, update or request is sent to anyone.</p>
+
+    <div class="child-tabs" role="group" aria-label="Planning for">
+      <span class="child-tabs-label">Planning for</span>
+      ${kids.map((c, i) => `<button type="button" class="child-tab tone-${CHILD_TONES[i % CHILD_TONES.length]}" data-child="${esc(c.id)}"
+        aria-pressed="${c.id === child.id}">${paal('paal-xs')}<span>${esc(c.name)}</span></button>`).join('')}
+    </div>
+
+    <div class="care-grid">
+      <section class="card care-section" id="schedule">
+        <p class="eyebrow">Today’s plan</p>
+        <h2>Care blocks</h2>
+        <p class="muted">Who’s doing what, and when, for ${esc(child.name)}.</p>
+        <div class="records">${blockList}</div>
+        <form id="block-form" class="care-form">
+          <h3>${editing ? 'Edit care block' : 'Add a care block'}</h3>
+          <label class="field"><span>What needs to happen?</span>
+            <input name="title" maxlength="100" placeholder="Pickup, snack, quiet time…" value="${esc(editing?.title || '')}"></label>
+          <div class="form-row">
+            <label class="field"><span>Time</span><input type="time" name="time" value="${esc(editing?.time || '')}"></label>
+            <label class="field"><span>Caregiver</span>${caregiverSelect(planPeople, editing?.caregiverId, 'Not assigned')}</label>
+          </div>
+          <label class="field"><span>Handoff details (optional)</span>
+            <textarea name="details" rows="2" maxlength="400" placeholder="Anything the next caregiver should know?">${esc(editing?.details || '')}</textarea></label>
+          <p class="audience">Can see the plan: ${planPeople.length ? planPeople.map(p => esc(p.name)).join(', ') : 'no caregivers have care-plan access yet'}</p>
+          <div class="form-actions">
+            ${editing ? '<button type="button" id="cancel-block" class="btn ghost">Cancel</button>' : ''}
+            <button type="submit" class="btn primary">${editing ? 'Save changes' : 'Add to today’s plan'}</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card care-section">
+        <p class="eyebrow">A useful handoff</p>
+        <h2>Post an update</h2>
+        <p class="muted">Leave a brief note about what happened or what helped.</p>
+        <form id="update-form" class="care-form">
+          <label class="field"><span>Update type</span>
+            <select name="kind"><option>Handoff note</option><option>What helped</option><option>Heads-up</option></select></label>
+          <label class="field"><span>Update</span>
+            <textarea name="text" rows="3" maxlength="500" placeholder="A short, practical update for the next caregiver…"></textarea></label>
+          <p class="audience">Can see updates: ${careAudience('updates', child.id)}</p>
+          <div class="form-actions"><button type="submit" class="btn primary">Post update</button></div>
+        </form>
+        <h3 class="records-title">Recent updates</h3>
+        <div class="records">${updateList}</div>
+      </section>
+
+      <section class="card care-section">
+        <p class="eyebrow">Ask for a hand</p>
+        <h2>Request help</h2>
+        <p class="muted">Describe one concrete task someone could take on.</p>
+        <form id="request-form" class="care-form">
+          <label class="field"><span>What would help?</span>
+            <textarea name="text" rows="2" maxlength="300" placeholder="Could someone handle pickup today?"></textarea></label>
+          <div class="form-row">
+            <label class="field"><span>By when?</span><input type="time" name="time"></label>
+            <label class="field"><span>Ask a caregiver</span>${caregiverSelect(requestPeople, '', 'No one specific')}</label>
+          </div>
+          <p class="audience">Can see requests: ${careAudience('requests', child.id)}</p>
+          <div class="form-actions"><button type="submit" class="btn primary">Post request</button></div>
+        </form>
+        <h3 class="records-title">Help requests</h3>
+        <div class="records">${requestList}</div>
+      </section>
+
+      <section class="card care-section">
+        <p class="eyebrow">Who helps</p>
+        <h2>Caregivers & permissions</h2>
+        <p class="muted">Choose which child and information each caregiver would be allowed to see.</p>
+        <div class="records">${caregiverList}</div>
+        <form id="caregiver-form" class="care-form">
+          <h3>Add a caregiver</h3>
+          <label class="field"><span>Caregiver name</span><input name="name" maxlength="60" placeholder="For example, Grandma Jo"></label>
+          <fieldset><legend>Children they may see</legend><div class="check-grid">${checks('children', childItems, kids.map(c => c.id))}</div></fieldset>
+          <fieldset><legend>Information they may see</legend><div class="check-grid">${checks('permissions', CARE_SCOPES, CARE_SCOPES.map(([s]) => s))}</div></fieldset>
+          <div class="form-actions"><button type="submit" class="btn primary">Add caregiver</button></div>
+        </form>
+      </section>
+
+      <section class="card care-section care-guide">
+        <p class="eyebrow">Made to share</p>
+        <h2>A quick guide for caregivers</h2>
+        <p class="muted">Share what helps ${esc(child.name)} feel supported, wherever they are.</p>
+        <div class="guide-grid">
+          <form id="guide-form" class="care-form">
+            <label class="field"><span>What they need</span>
+              <textarea name="needs" rows="2" maxlength="400" placeholder="Allergies, routines, comfort items…">${esc(child.needs || '')}</textarea></label>
+            <label class="field"><span>What helps them feel calm</span>
+              <textarea name="calm" rows="2" maxlength="400" placeholder="A quiet space, a familiar song…">${esc(child.calm || '')}</textarea></label>
+            <label class="field"><span>An easy game to play</span>
+              <input name="game" maxlength="200" placeholder="I spy, building blocks…" value="${esc(child.game || '')}"></label>
+            <div class="form-actions"><button type="submit" class="btn ghost">Save guide</button></div>
+          </form>
+          <div class="guide-preview">
+            <label class="field"><span>Preview the message</span>
+              <textarea id="guide-text" rows="9" readonly>${esc(caregiverGuide(child))}</textarea></label>
+            <div class="form-actions">
+              <button type="button" id="copy-guide" class="btn ghost">Copy guide</button>
+              <button type="button" id="share-guide" class="btn primary">Share guide ↗</button>
+            </div>
+            <p class="audience">Only share with people you trust. Sending it doesn’t sync later changes.</p>
+          </div>
+        </div>
+      </section>
+    </div>`;
+}
+
+async function copyGuide() {
+  const field = $('#guide-text');
+  try {
+    await navigator.clipboard.writeText(field.value);
+    toast('Caregiver guide copied');
+  } catch {
+    field.focus();
+    field.select();
+    toast('Guide selected. Copy it to share with a caregiver.');
+  }
+}
+
+function bindCare() {
+  const child = activeChild();
+  const formData = id => new FormData($(id));
+  const done = message => { save(); render(); toast(message); };
+
+  document.querySelectorAll('[data-child]').forEach(button => {
+    button.onclick = () => { state.activeChildId = button.dataset.child; editingBlockId = null; save(); render(); };
+  });
+
+  $('#block-form').onsubmit = event => {
+    event.preventDefault();
+    const form = formData('#block-form');
+    const title = String(form.get('title')).trim(), time = String(form.get('time'));
+    if (!title || !time) { toast('Add a care task and a time first.'); return; }
+    const existing = state.care.blocks.find(b => b.id === editingBlockId);
+    const block = { title, time, details: String(form.get('details')).trim(), caregiverId: String(form.get('caregiver')) };
+    if (existing) Object.assign(existing, block);
+    else state.care.blocks.push({ id: uid('block'), childId: child.id, date: todayKey(), createdAt: new Date().toISOString(), ...block });
+    editingBlockId = null;
+    done(existing ? 'Care block updated' : 'Added to today’s plan');
+  };
+  const cancel = $('#cancel-block');
+  if (cancel) cancel.onclick = () => { editingBlockId = null; render(); };
+  document.querySelectorAll('[data-edit-block]').forEach(button => {
+    button.onclick = () => { editingBlockId = button.dataset.editBlock; render(); $('#block-form').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+  });
+  document.querySelectorAll('[data-delete-block]').forEach(button => {
+    button.onclick = () => {
+      state.care.blocks = state.care.blocks.filter(b => b.id !== button.dataset.deleteBlock);
+      if (editingBlockId === button.dataset.deleteBlock) editingBlockId = null;
+      done('Care block removed');
+    };
+  });
+
+  $('#update-form').onsubmit = event => {
+    event.preventDefault();
+    const form = formData('#update-form');
+    const text = String(form.get('text')).trim();
+    if (!text) { toast('Write a short update first.'); return; }
+    state.care.updates.push({ id: uid('update'), childId: child.id, kind: String(form.get('kind')), text, createdAt: new Date().toISOString() });
+    done('Update saved in this browser. No one was notified.');
+  };
+
+  $('#request-form').onsubmit = event => {
+    event.preventDefault();
+    const form = formData('#request-form');
+    const text = String(form.get('text')).trim();
+    if (!text) { toast('Describe what help would be useful.'); return; }
+    state.care.requests.push({ id: uid('request'), childId: child.id, text, time: String(form.get('time')),
+      caregiverId: String(form.get('caregiver')), status: 'open', createdAt: new Date().toISOString() });
+    done('Request saved in this browser. No one was notified.');
+  };
+  document.querySelectorAll('[data-accept]').forEach(button => {
+    button.onclick = () => {
+      const request = state.care.requests.find(r => r.id === button.dataset.accept);
+      if (request) { request.status = 'accepted'; request.acceptedAt = new Date().toISOString(); }
+      done('Marked accepted in this demo');
+    };
+  });
+
+  $('#caregiver-form').onsubmit = event => {
+    event.preventDefault();
+    const form = formData('#caregiver-form');
+    const name = String(form.get('name')).trim();
+    const childIds = form.getAll('children').map(String), permissions = form.getAll('permissions').map(String);
+    if (!name) { toast('Add a caregiver name first.'); return; }
+    if (!childIds.length || !permissions.length) { toast('Choose at least one child and one thing they can see.'); return; }
+    state.care.caregivers.push({ id: uid('caregiver'), name, childIds, permissions });
+    done(`${name} added. No invitation was sent.`);
+  };
+  const savePermissions = $('#save-permissions');
+  if (savePermissions) savePermissions.onclick = () => {
+    const checked = name => [...document.querySelectorAll(`[name="${CSS.escape(name)}"]:checked`)].map(input => input.value);
+    state.care.caregivers.forEach(p => {
+      p.childIds = checked('child-' + p.id);
+      p.permissions = checked('permission-' + p.id);
+    });
+    done('Permissions saved in this browser');
+  };
+  document.querySelectorAll('[data-remove-caregiver]').forEach(button => {
+    button.onclick = () => {
+      state.care.caregivers = state.care.caregivers.filter(p => p.id !== button.dataset.removeCaregiver);
+      done('Caregiver removed');
+    };
+  });
+
+  $('#guide-form').onsubmit = event => {
+    event.preventDefault();
+    const form = formData('#guide-form');
+    for (const key of ['needs', 'calm', 'game']) child[key] = String(form.get(key)).trim();
+    done('Caregiver guide saved');
+  };
+  $('#copy-guide').onclick = copyGuide;
+  $('#share-guide').onclick = async () => {
+    if (typeof navigator.share !== 'function') { copyGuide(); return; }
+    try { await navigator.share({ title: `Care guide for ${child.name}`, text: $('#guide-text').value }); }
+    catch (error) { if (error.name !== 'AbortError') toast('Could not open sharing. Try copying the guide instead.'); }
+  };
+}
+
+
 /* PAAL (chat) */
 
 function paalScreen() {
@@ -596,7 +1001,7 @@ function paalScreen() {
     <div class="speech">Hi, I’m PAAL! I can help you with anything you need.</div>
 
     <div class="chat-wrap">
-      <div class="peeker">${mascot('mascot-xl mascot-bob')}</div>
+      <div class="peeker">${paal('paal-peek')}</div>
       <span class="hand left" aria-hidden="true"></span><span class="hand right" aria-hidden="true"></span>
 
       <section class="card chat-card" aria-label="Chat with PAAL">
@@ -620,7 +1025,7 @@ function paalScreen() {
 /* ---------- 5. CHAT ---------- */
 
 function paalBubble(html) {
-  return `<div class="msg-row">${mascot('mascot-sm')}<div class="msg paal">${html}</div></div>`;
+  return `<div class="msg-row">${paal('paal-xs')}<div class="msg bot">${html}</div></div>`;
 }
 
 function messageMarkup(message) {
@@ -711,17 +1116,17 @@ function bindChat() {
 
 /* ---------- 6. ROUTER ---------- */
 
-// URLs: #family, #learn, #learn/<lesson-id>, #paal, #edit
+// URLs: #home, #learn, #learn/<lesson-id>, #care, #paal, #edit
 // Anyone without a profile sees the sign-up page first.
 function currentRoute() {
   const [page = '', id = ''] = location.hash.slice(1).split('/');
   if (!state.profile) return { page: 'signup' };
   if (page === 'learn' && id) return { page: 'lesson', id };
-  if (['family', 'learn', 'paal', 'edit'].includes(page)) return { page };
-  return { page: 'family' };
+  if (['home', 'learn', 'care', 'paal', 'edit'].includes(page)) return { page };
+  return { page: 'home' }; // also catches old #family links
 }
 
-const TITLES = { signup: 'Welcome', edit: 'Edit family', family: 'Family', learn: 'Learn', lesson: 'Learn', paal: 'Talk to PAAL' };
+const TITLES = { signup: 'Welcome', edit: 'Edit family', home: 'Home', learn: 'Learn', lesson: 'Learn', care: 'Care', paal: 'Talk to PAAL' };
 
 function render() {
   const route = currentRoute();
@@ -737,9 +1142,10 @@ function render() {
   draft = null;
   const lesson = route.page === 'lesson' ? LESSONS.find(l => l.id === route.id) : null;
   const screens = {
-    family: familyScreen,
+    home: homeScreen,
     learn: learnScreen,
     lesson: () => lesson ? lessonScreen(lesson) : learnScreen(),
+    care: careScreen,
     paal: paalScreen
   };
   $('#app').innerHTML = shell(route.page === 'lesson' ? 'learn' : route.page, screens[route.page]());
@@ -752,6 +1158,7 @@ function render() {
     render();
   };
   if (lesson) bindLesson(lesson);
+  if (route.page === 'care') bindCare();
   if (route.page === 'paal') bindChat();
 }
 
