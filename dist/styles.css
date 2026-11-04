@@ -19,12 +19,13 @@
 }
 
 /* Tones: soft background, darker text, and a strong accent */
-.tone-lav   { --tone-bg: #eee3fc; --tone-fg: #8062aa; --tone: #b892ea; }
-.tone-peach { --tone-bg: #ffe3d4; --tone-fg: #a8582f; --tone: #f4a37f; }
-.tone-mint  { --tone-bg: #d9f0e2; --tone-fg: #427b5a; --tone: #7cc59a; }
-.tone-sky   { --tone-bg: #dcebf7; --tone-fg: #3d6a8f; --tone: #7fb0dc; }
-.tone-gold  { --tone-bg: #f8ebc0; --tone-fg: #7d621a; --tone: #e6c25a; }
-.tone-pink  { --tone-bg: #f7d8e6; --tone-fg: #9c5874; --tone: #e994b8; }
+/* --kid is the body color of a child's character */
+.tone-lav   { --tone-bg: #eee3fc; --tone-fg: #8062aa; --tone: #b892ea; --kid: #dcc8f6; }
+.tone-peach { --tone-bg: #ffe3d4; --tone-fg: #a8582f; --tone: #f4a37f; --kid: #ffc9a8; }
+.tone-mint  { --tone-bg: #d9f0e2; --tone-fg: #427b5a; --tone: #7cc59a; --kid: #a9dfbd; }
+.tone-sky   { --tone-bg: #dcebf7; --tone-fg: #3d6a8f; --tone: #7fb0dc; --kid: #acd0f0; }
+.tone-gold  { --tone-bg: #f8ebc0; --tone-fg: #7d621a; --tone: #e6c25a; --kid: #f5d77a; }
+.tone-pink  { --tone-bg: #f7d8e6; --tone-fg: #9c5874; --tone: #e994b8; --kid: #f7b8d2; }
 
 
 /* ---------- Base ---------- */
@@ -118,17 +119,23 @@ h3 { margin: 0 0 6px; font-size: 19px; font-weight: 650; letter-spacing: -.3px; 
 @keyframes rise { from { opacity: 0; transform: translate(-50%, 8px); } }
 
 
-/* ---------- PAAL character (the purple friend from Lili's illustration) ---------- */
+/* ---------- Characters ----------
+   PAAL: the tall purple friend from Lili's illustration.
+   Kids: shorter, rounder buddies, one color per child (--kid from the tones above). */
 
-.paal { display: block; flex: none; width: 120px; height: auto; overflow: visible; }
+.paal, .kid { display: block; flex: none; height: auto; overflow: visible; }
+.paal { width: 120px; }
 .paal-xs { width: 26px; }
-.paal-sm { width: 40px; }
 .paal-md { width: 84px; }
 .paal-lg { width: 120px; }
 .paal-peek { width: 132px; }
+.kid { width: 52px; }
+.kid-xs { width: 28px; }
 
 .paal-body { fill: var(--mascot); }
-.paal-lines path {
+.kid-body { fill: var(--kid, #ffc9a8); }
+.char-cheek { fill: #f59fbf; opacity: .55; }
+.char-line {
   fill: none;
   stroke: var(--mascot-ink);
   stroke-width: 2.5px;
@@ -136,15 +143,26 @@ h3 { margin: 0 0 6px; font-size: 19px; font-weight: 650; letter-spacing: -.3px; 
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke; /* lines stay crisp at every size */
 }
-.paal-xs .paal-lines path, .paal-sm .paal-lines path { stroke-width: 1.5px; }
+.paal-xs .char-line, .kid .char-line { stroke-width: 1.6px; }
+.kid-xs .char-line { stroke-width: 1.2px; }
 
-.paal-eyes { transform-box: fill-box; transform-origin: center; animation: blink 5s infinite; }
-.paal-wave { transform-box: fill-box; transform-origin: 0% 100%; animation: wave 2.4s ease-in-out infinite; }
+/* Animations: everything pivots around its own box */
+.paal-sway, .kid-bounce, .char-eyes, .char-pupils, .paal-wave { transform-box: fill-box; }
+.paal-sway { transform-origin: 50% 100%; animation: sway 4s ease-in-out infinite; }
+.kid-bounce { transform-origin: 50% 100%; animation: bounce 1.8s ease-in-out infinite; }
+.char-eyes { transform-origin: center; animation: blink 4.5s infinite; }
+.char-pupils { animation: glance 7s ease-in-out infinite; }
+.paal-wave { transform-origin: 0% 100%; animation: wave 2.4s ease-in-out infinite; }
 .paal-peek { animation: bob 3.2s ease-in-out infinite; }
+.talk-card:hover .paal, .signup-intro .paal:hover { animation: hop .6s ease-out; }
 
-@keyframes blink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
-@keyframes wave { 0%, 55%, 100% { transform: rotate(0); } 65% { transform: rotate(-14deg); } 78% { transform: rotate(10deg); } 90% { transform: rotate(-6deg); } }
+@keyframes sway { 0%, 100% { transform: rotate(-2deg) scaleY(1); } 50% { transform: rotate(2deg) scaleY(1.025); } }
+@keyframes bounce { 0%, 100% { transform: translateY(0) scale(1, 1); } 45% { transform: translateY(-5px) scale(.97, 1.04); } 70% { transform: translateY(0) scale(1.04, .96); } }
+@keyframes blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
+@keyframes glance { 0%, 30%, 100% { transform: translate(0, 0); } 40%, 55% { transform: translate(-3px, -1px); } 65%, 80% { transform: translate(2px, 1px); } }
+@keyframes wave { 0%, 55%, 100% { transform: rotate(0); } 65% { transform: rotate(-16deg); } 78% { transform: rotate(12deg); } 90% { transform: rotate(-6deg); } }
 @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@keyframes hop { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-10px); } 70% { transform: translateY(2px); } }
 
 
 /* ---------- Layout: sidebar on desktop, bottom tabs on phones ---------- */

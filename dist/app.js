@@ -245,7 +245,8 @@ const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-const CHILD_TONES = ['peach', 'lav', 'mint', 'sky', 'gold', 'pink'];
+// Kids get these colors in order; lavender is last so it doesn't look like PAAL
+const CHILD_TONES = ['peach', 'mint', 'sky', 'gold', 'pink', 'lav'];
 const TONE_COLORS = { lav: '#b892ea', peach: '#f4a37f', mint: '#7cc59a', sky: '#7fb0dc', gold: '#e6c25a', pink: '#e994b8' };
 
 // ['Mia', 'Leo', 'Sam'] -> 'Mia, Leo and Sam'
@@ -279,21 +280,46 @@ function toast(message) {
   setTimeout(() => { $('#announcer').innerHTML = ''; }, 3000);
 }
 
+// Shared eyes for both characters: white eyes, pupils that glance around, a sparkle.
+function eyes(spots, r) {
+  return `<g class="char-eyes">
+    ${spots.map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#fff"/>`).join('')}
+    <g class="char-pupils">
+      ${spots.map(([x, y]) => `<circle cx="${x + 2}" cy="${y + 4}" r="${r}" fill="#20251f"/><circle cx="${x + 2 - r / 3}" cy="${y + 4 - r / 3}" r="${r / 3}" fill="#fff"/>`).join('')}
+    </g>
+  </g>`;
+}
+
 // The PAAL character: the tall purple friend from Lili's original illustration
-// (same body outline, eyes and legs as her art() drawing).
-// Sizes: paal-xs / paal-sm / paal-md / paal-lg / paal-xl (see styles.css)
-// wave = true adds a waving arm.
+// (same body outline and legs as her art() drawing), with a smile and rosy cheeks.
+// Sizes: paal-xs / paal-md / paal-lg / paal-peek (see styles.css)
+// wave = true adds arms, one of them waving.
 function paal(classes = '', wave = false) {
   return `<svg class="paal ${classes}" viewBox="84 64 184 250" aria-hidden="true">
-    <path class="paal-body" d="M100 297C96 236 119 179 148 133C166 104 192 66 221 74C257 82 251 114 227 147C198 187 191 244 192 296Z"/>
-    <g class="paal-eyes">
-      <ellipse cx="220" cy="103" rx="10" ry="13" fill="#fff"/><ellipse cx="240" cy="112" rx="10" ry="13" fill="#fff"/>
-      <circle cx="224" cy="108" r="5" fill="#20251f"/><circle cx="241" cy="117" r="5" fill="#20251f"/>
+    <path class="char-line" d="M112 286L98 308L127 308M182 286L192 307L212 309"/>
+    <g class="paal-sway">
+      <path class="paal-body" d="M100 297C96 236 119 179 148 133C166 104 192 66 221 74C257 82 251 114 227 147C198 187 191 244 192 296Z"/>
+      ${eyes([[219, 102, 10, 13], [239, 111, 10, 13]], 6)}
+      <ellipse class="char-cheek" cx="203" cy="127" rx="7" ry="4.5"/>
+      <ellipse class="char-cheek" cx="234" cy="134" rx="4.5" ry="3.5"/>
+      <path class="char-line" d="M207 136Q217 149 228 139"/>
+      ${wave ? '<path class="char-line" d="M118 200Q100 214 96 236"/><path class="char-line paal-wave" d="M206 172Q236 168 250 136"/>' : ''}
     </g>
-    <g class="paal-lines">
-      <path d="M205 146L214 149"/>
-      <path d="M112 286L98 308L127 308M182 286L192 307L212 309"/>
-      ${wave ? '<path d="M160 170Q150 214 180 224"/><path class="paal-wave" d="M206 172Q236 168 250 136"/>' : ''}
+  </svg>`;
+}
+
+// The kids: short, round buddies in the same hand-drawn style as PAAL,
+// each in their own color. `index` staggers the bounce so they don't move in sync.
+function kid(tone, classes = '', index = 0) {
+  return `<svg class="kid tone-${tone} ${classes}" viewBox="240 198 132 116" aria-hidden="true">
+    <path class="char-line" d="M282 290L276 308L262 308M330 290L338 308L352 308"/>
+    <g class="kid-bounce" style="animation-delay: ${-index * 0.7}s">
+      <path class="kid-body" d="M260 298C254 262 262 222 290 211C312 203 336 210 346 232C356 254 354 280 352 298Z"/>
+      ${eyes([[296, 236, 9, 11.5], [318, 235, 9, 11.5]], 4.5)}
+      <ellipse class="char-cheek" cx="284" cy="257" rx="6" ry="3.5"/>
+      <ellipse class="char-cheek" cx="331" cy="256" rx="6" ry="3.5"/>
+      <path class="char-line" d="M300 254Q308 263 316 254"/>
+      <path class="char-line" d="M259 268Q249 260 246 248M353 266Q363 258 365 246"/>
     </g>
   </svg>`;
 }
@@ -508,7 +534,7 @@ function homeScreen() {
 
     <section class="children-grid" aria-label="Your children">
       ${p.children.map((c, i) => `<article class="child-card tone-${CHILD_TONES[i % CHILD_TONES.length]}">
-        ${paal('paal-sm')}
+        ${kid(CHILD_TONES[i % CHILD_TONES.length], '', i)}
         <div><h2>${esc(c.name)}</h2><p>${ageLabel(c.age)}</p></div>
       </article>`).join('')}
     </section>
@@ -768,7 +794,7 @@ function careScreen() {
     <div class="child-tabs" role="group" aria-label="Planning for">
       <span class="child-tabs-label">Planning for</span>
       ${kids.map((c, i) => `<button type="button" class="child-tab tone-${CHILD_TONES[i % CHILD_TONES.length]}" data-child="${esc(c.id)}"
-        aria-pressed="${c.id === child.id}">${paal('paal-xs')}<span>${esc(c.name)}</span></button>`).join('')}
+        aria-pressed="${c.id === child.id}">${kid(CHILD_TONES[i % CHILD_TONES.length], 'kid-xs', i)}<span>${esc(c.name)}</span></button>`).join('')}
     </div>
 
     <div class="care-grid">
