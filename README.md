@@ -1,86 +1,57 @@
-# PAAL interactive prototype
+# PAAL – parenting companion prototype
 
-A buildless HTML, CSS, and JavaScript prototype for a parenting companion.
+A buildless HTML, CSS and JavaScript prototype. This is Andres's version
+(branch `andres-test`), rebuilt from Lili Rodriguez's original PAAL 2.0.
+Lili's original code is unchanged on her repository's `main` branch.
 
 ## Run it
-
-Open `dist/index.html` directly in a browser, or run from this folder:
 
 ```sh
 python3 -m http.server 8000 --directory dist
 ```
 
-Then visit http://localhost:8000. No installation, API key, or build step is needed.
-A local server is recommended for predictable browser storage behavior.
+Then visit http://localhost:8000. No installation, API key or build step is needed.
+To try it on a phone, use your computer's local IP address (same Wi-Fi), e.g.
+`http://192.168.1.23:8000`.
+
+## What it does
+
+- **Sign-up** (first visit): your name, your children (name and age), and where you
+  struggle: putting them to sleep, taking them off screens, controlling temper
+  tantrums, or "I just want to learn".
+- **Family** (home): your children, a colorful lesson-progress ring, PAAL's
+  research-based tips for the struggles you chose, and a shortcut to talk to PAAL.
+- **Learn**: lessons with a progress bar at the top. Mark a lesson complete to fill
+  in the progress.
+- **PAAL**: a chat box with the PAAL mascot peeking over it. Answers are
+  **scripted**: PAAL matches keywords (sleep, screens, tantrums, learning) to
+  prepared, research-based answers. It is not a live AI.
+
+| Struggle | Answer based on |
+|---|---|
+| Putting them to sleep | Bedtime-routine research (Mindell et al., 2009) |
+| Taking them off screens | American Academy of Pediatrics Family Media Plan |
+| Controlling temper tantrums | Parent-Child Interaction Therapy (PCIT, Eyberg) |
+| I just want to learn | Serve and Return (Harvard Center on the Developing Child) |
 
 ## Files to edit
 
-- `dist/index.html`: document title, metadata, and asset references.
-- `dist/styles.css`: system font stack, colors, responsive layouts, and components.
-- `dist/app.js`: screens, form fields, help topics, sample ideas, state, and interactions.
+- `dist/app.js`: everything the app says and does, in six labeled sections:
+  1. **CONTENT**: `STRUGGLES` (sign-up options, answers, chat keywords) and `LESSONS`
+  2. **STATE**: saved data
+  3. **HELPERS**: utilities and the `mascot()` character
+  4. **SCREENS**: one function per page (`signupScreen`, `familyScreen`, `learnScreen`, `lessonScreen`, `paalScreen`)
+  5. **CHAT**: `paalReply()` decides how PAAL answers
+  6. **ROUTER**: page addresses (`#family`, `#learn`, `#learn/<lesson>`, `#paal`, `#edit`)
+- `dist/styles.css`: colors and fonts at the top (`:root` and the `.tone-*` colors),
+  then one section per page.
+- `dist/index.html`: page title. Bump `?v=9` after editing CSS/JS so phones
+  don't show a cached copy.
+- `index.html` (repo root): only redirects to `dist/` for GitHub Pages.
 
-The prototype opens on the **Family** dashboard on each page load. Choose
-**Edit family** to add or update family details; **Get started** from the welcome
-screen opens the family editor when details are still incomplete.
-In `app.js`, `helpTopics` contains 21 support topics; `familyMarkup()` renders
-the family editor; `familyErrors()` validates each child's required topics and
-needs; `ideas` contains the sample suggestions; `render()` selects a screen;
-and `bind()` connects the interactions.
+## Limitations
 
-## Work as a group
-
-1. Unzip this source package and create a repository in your group's GitHub account.
-2. Upload the `dist` folder and this README, or push them using Git.
-3. Invite your teammates as repository collaborators.
-4. Each teammate can edit a branch and open a pull request for review.
-
-Changes to your group's copy do not automatically update the original hosted
-ChatGPT Site. Deploy your repository with your chosen static host, or bring
-updated files back to the Site owner for a new deployment.
-
-This export includes no account credentials, hosting identity, or user-entered
-family data. The owner-connected source repository is separate from your
-new shared repository.
-
-## Behavior and limitations
-
-- Family units support multiple children, each with an optional nickname,
-  age, one or more support topics, required needs/preferences, and optional
-  existing approaches. 'Something else' opens a required custom topic field.
-- `No specific needs` is an acceptable needs/preferences response.
-- The Today page lets you choose the child whose topics should guide the demo.
-- Main navigation follows the Today, Learn, Village, and Family layout. Learn opens the lesson library (with weekly goals available as a secondary view); Village opens saved ideas and resources.
-- The Family tab shows selectable child profiles, recent feedback, weekly goals, and additional ideas to explore. Edit family details or add another child from that screen.
-- Existing one-child browser profiles are migrated when loaded.
-- Family details, saved ideas, feedback, reading status, and weekly family goals persist in this
-  browser's localStorage under `paal-prototype`. They are not synced across
-  teammates or devices.
-- The Learn tab lets parents explore lessons and set or complete weekly Individual and Family goals.
-  Goals roll over on Monday; previous weeks are retained locally. Resource reads
-  are self-reported; the app cannot verify activity on external resource sites.
-- The Learn tab includes a library with short parenting lessons, source links,
-  interactive reflection choices, private lesson comments, and locally saved
-  completion status. Recommendation detail pages include links to the institutional
-  sources that informed each example. Lesson comments and answers stay in this
-  browser and are not shared with other parents.
-- The Today form offers browser speech recognition where supported. Interim
-  speech appears as you speak and can be edited before continuing. Microphone
-  permission is required; typing remains available as a fallback.
-- Reset demo clears the local prototype state after confirmation.
-- Recommendations are static examples, not a live AI service or research database.
-  Matching uses topic keywords and a subset of circumstance controls. Lesson and
-  recommendation references are linked for readers to review; free-text needs and
-  preferences do not produce individualized academic or clinical advice. Evidence
-  summaries are brief and should be interpreted in the context of each family.
-- CSS requests Helvetica, then Helvetica Neue, Arial, and the system sans-serif
-  fallback. A device without Helvetica uses the next available font. No
-  proprietary font files are distributed.
-- This prototype has no account system, backend, shared family accounts,
-  production privacy controls, or clinical decision support.
-
-## Checks on this revision
-
-JavaScript syntax and execution checks covered the opening page, migration of
-legacy family data, multiple children, family data collection, required fields,
-custom topics, active-child selection, topic matching, and all screen renders.
-A live browser visual review was not available in the authoring environment.
+- Data is saved only in this browser's `localStorage` (key `paal-andres`). It is
+  not synced between devices. **Reset demo** clears it.
+- No accounts, backend or live AI. Tips are general, research-based ideas, not
+  medical advice.
