@@ -720,10 +720,6 @@ legend { margin-bottom: 12px; padding: 0; font-size: 19px; font-weight: 650; let
 .player-time { margin: 0 0 16px; color: var(--muted); font-size: 15px; font-variant-numeric: tabular-nums; }
 .player-controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .player.paused .breath-ring, .player.paused .player-paal, .player.paused .paal * { animation-play-state: paused; }
-
-.voice-pick { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin-top: 16px; color: var(--muted); font-size: 13px; }
-.voice-pick select { max-width: 260px; min-height: 36px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); font-size: 13px; }
-
 .idea-list { margin: 0 0 8px; padding-left: 18px; }
 .idea-list li { margin-bottom: 6px; }
 

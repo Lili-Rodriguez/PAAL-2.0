@@ -40,18 +40,18 @@ To try it on a phone, use your computer's local IP address (same Wi-Fi), e.g.
 
 ### PAAL's voice
 
-- By default PAAL uses the most natural voice the device offers, read slowly with
-  pauses between sentences and soft breathing cues. Parents can pick another voice
-  in the player.
-- Device voices vary a lot. For a much more human sound, download a better voice:
-  - **iPhone/iPad:** Settings → Accessibility → Spoken Content → Voices → English →
-    download an "Enhanced" or "Premium" voice (e.g. Ava or Zoe).
-  - **Mac:** System Settings → Accessibility → Spoken Content → System voice →
-    Manage Voices → download an Enhanced/Premium voice.
-  - **Windows:** Microsoft Edge includes "Natural" voices (e.g. Aria, Jenny).
-- **Recorded voice (most human):** put one audio file per step in
-  `dist/audio/parent-reset/1.mp3` … `7.mp3` (recorded by a person or made with an
-  AI voice service) and set `audio: true` on the activity in `app.js`.
+- PAAL's voice is a set of real recordings in `dist/audio/parent-reset/`
+  (`1.m4a` … `7.m4a`, one per step, plus the breathing cues `cue-in`, `cue-more`,
+  `cue-out`; about 750 KB in total). The app no longer uses the browser's
+  built-in voices.
+- They were made with **[Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M)**,
+  an open-source text-to-speech model (Apache-2.0 license), using its "Heart"
+  voice (`af_heart`) at 0.88× speed with 0.8 s pauses between sentences. Kokoro
+  ran once, offline on a computer; visitors only download the small audio files.
+- **If you change a step's text**, re-record it so the voice matches: install
+  `kokoro-js` (npm) in a separate folder, generate each sentence with
+  `voice: 'af_heart', speed: 0.88`, join them with short pauses, and convert to
+  `.m4a`. Keep the file names the same.
 
 | Struggle | Answer based on |
 |---|---|
@@ -71,7 +71,7 @@ To try it on a phone, use your computer's local IP address (same Wi-Fi), e.g.
   6. **ROUTER**: page addresses (`#home`, `#learn`, `#learn/<lesson>`, `#care`, `#paal`, `#edit`)
 - `dist/styles.css`: colors and fonts at the top (`:root` and the `.tone-*` colors),
   then one section per page.
-- `dist/index.html`: page title. Bump `?v=14` after editing CSS/JS so phones
+- `dist/index.html`: page title. Bump `?v=15` after editing CSS/JS so phones
   don't show a cached copy.
 - `index.html` (repo root): only redirects to `dist/` for GitHub Pages.
 

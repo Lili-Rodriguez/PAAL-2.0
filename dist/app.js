@@ -229,7 +229,6 @@ const ACTIVITIES = [
     summary: 'A short breathing and self-kindness practice for when you feel stretched thin.',
     basedOn: 'Cyclic sighing (Stanford study, Balban et al., 2023), Kristin Neff’s self-compassion break, and mindful-parenting research',
     sources: [SOURCES.cyclicSighing, SOURCES.selfCompassion, SOURCES.mindfulParenting],
-    audio: false, // set to true once recordings are in dist/audio/parent-reset/1.mp3 … 7.mp3
     steps: [
       { title: 'Arrive', secs: 20, say: 'Hi, I’m PAAL. Let’s take a few minutes, just for you. Sit or stand somewhere comfortable. You don’t need to do this perfectly. Just follow along.' },
       { title: 'Notice', secs: 25, say: 'Feel where your body touches the chair or the floor. Let your shoulders drop a little. Notice your breathing, without trying to change it.' },
@@ -1386,84 +1385,47 @@ function sayText(step) {
   return step.say.replace('{child}', childNames() || 'your child');
 }
 
-/* PAAL's voice.
-   Most human: recorded audio. If an activity has `audio: true`, each step plays
-   audio/<activity-id>/<step number>.mp3 (e.g. audio/parent-reset/1.mp3).
-   Otherwise PAAL uses the most natural voice the device offers, read slowly,
-   one sentence at a time with calm pauses. */
+/* PAAL's voice: real recordings made with Kokoro-82M, an open-source (Apache-2.0)
+   text-to-speech model, using its warm "Heart" voice at a relaxed pace.
+   Files: audio/<activity-id>/1.m4a, 2.m4a, … (one per step) plus short
+   breathing cues (cue-in, cue-more, cue-out). If you change a step's text,
+   re-record it (see README). */
 
-// Best-sounding voices first. "Natural" (Edge), "Premium"/"Enhanced" (Apple)
-// and Google voices sound far more human than the basic ones.
-const PREFERRED_VOICES = [/natural/i, /premium/i, /enhanced/i, /neural/i, /^Google US English/, /^Google UK English Female/,
-  /^(Ava|Zoe|Allison|Susan|Serena|Samantha|Moira|Karen|Tessa)\b/];
+let clip = null;    // the step recording that is playing
+let cueClip = null; // a breathing cue that is playing
 
-let voices = [];
-let speechRun = 0;      // bumps on every new line so older lines stop
-let voiceBusy = false;  // true while PAAL is reading a step
-let currentLine = null; // kept so the browser doesn't drop it before it ends
-let clip = null;        // recorded audio that is playing
-
-function loadVoices() {
-  voices = 'speechSynthesis' in window ? speechSynthesis.getVoices().filter(v => v.lang.startsWith('en')) : [];
-}
-
-function chosenVoice() {
-  return voices.find(v => v.name === state.voiceName)
-    || PREFERRED_VOICES.map(pattern => voices.find(v => pattern.test(v.name))).find(Boolean)
-    || voices[0];
-}
-
-function utter(text, rate) {
-  const line = new SpeechSynthesisUtterance(text);
-  const voice = chosenVoice();
-  if (voice) { line.voice = voice; line.lang = voice.lang; }
-  line.rate = rate;   // slower = calmer
-  line.pitch = .95;   // a touch lower = softer
-  line.volume = .9;
-  currentLine = line;
-  return line;
-}
+const audioPath = (activity, name) => `audio/${activity.id}/${name}.m4a`;
 
 function stopVoice() {
-  speechRun += 1;
-  voiceBusy = false;
-  if ('speechSynthesis' in window) speechSynthesis.cancel();
-  if (clip) { clip.pause(); clip = null; }
+  for (const audio of [clip, cueClip]) if (audio) audio.pause();
+  clip = cueClip = null;
 }
 
 function pauseVoice(paused) {
-  if (clip) paused ? clip.pause() : clip.play().catch(() => {});
-  else if ('speechSynthesis' in window) paused ? speechSynthesis.pause() : speechSynthesis.resume();
+  for (const audio of [clip, cueClip]) {
+    if (audio && !audio.ended) paused ? audio.pause() : audio.play().catch(() => {});
+  }
 }
 
-// Read a step: the recording if there is one, otherwise sentence by sentence
-function speakStep(text, audioSrc = null) {
+// Play a step's recording. If it's longer than the step, the step waits for it.
+function playStep(activity, index) {
   stopVoice();
   if (!state.voice) return;
-  if (audioSrc) { clip = new Audio(audioSrc); clip.play().catch(() => {}); return; }
-  if (!('speechSynthesis' in window) || !text) return;
-  const run = speechRun;
-  const sentences = text.match(/[^.!?:]+[.!?:]*/g).map(s => s.trim()).filter(Boolean);
-  voiceBusy = true;
-  const next = i => {
-    if (run !== speechRun) return;
-    if (i >= sentences.length) { voiceBusy = false; return; }
-    const line = utter(sentences[i], .82);
-    line.onend = () => setTimeout(() => next(i + 1), 700);
-    speechSynthesis.speak(line);
+  const audio = new Audio(audioPath(activity, index + 1));
+  audio.onloadedmetadata = () => {
+    if (player && player.activity === activity && player.step === index) {
+      player.left = Math.max(player.left, Math.ceil(audio.duration) + 2);
+    }
   };
-  next(0);
+  audio.play().catch(() => {});
+  clip = audio;
 }
 
-// Short, soft breathing cues; skipped while PAAL is still talking
-function speakCue(text) {
-  if (!state.voice || voiceBusy || clip || !('speechSynthesis' in window)) return;
-  speechSynthesis.speak(utter(text, .72));
-}
-
-if ('speechSynthesis' in window) {
-  loadVoices();
-  speechSynthesis.onvoiceschanged = () => { loadVoices(); if (player && !player.done) drawPlayer(); };
+// Soft breathing cues; skipped while PAAL is still talking
+function playCue(activity, name) {
+  if (!state.voice || (clip && !clip.ended)) return;
+  cueClip = new Audio(audioPath(activity, 'cue-' + name));
+  cueClip.play().catch(() => {});
 }
 
 const clock = secs => `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
@@ -1492,7 +1454,7 @@ function goToStep(index) {
   player.step = index;
   player.left = stepLength(steps[index]);
   drawPlayer();
-  speakStep(sayText(steps[index]), player.activity.audio ? `audio/${player.activity.id}/${index + 1}.mp3` : null);
+  playStep(player.activity, index);
 }
 
 function drawPlayer() {
@@ -1520,10 +1482,7 @@ function drawPlayer() {
       <button type="button" class="btn ghost" id="player-voice" aria-pressed="${state.voice}">${state.voice ? '🔊 Voice on' : '🔈 Voice off'}</button>
       <button type="button" class="btn primary" id="player-pause">${paused ? '▶ Resume' : '❚❚ Pause'}</button>
       <button type="button" class="btn ghost" id="player-next">Next →</button>
-    </div>
-    ${state.voice && !activity.audio && voices.length > 1 ? `<label class="voice-pick">PAAL’s voice
-      <select id="player-voice-name">${voices.map(v => `<option value="${esc(v.name)}" ${v.name === chosenVoice()?.name ? 'selected' : ''}>${esc(v.name)} (${esc(v.lang)})</option>`).join('')}</select>
-    </label>` : ''}`;
+    </div>`;
 
   $('#player-close').onclick = closeActivity;
   $('#player-next').onclick = () => goToStep(player.step + 1);
@@ -1535,15 +1494,9 @@ function drawPlayer() {
   $('#player-voice').onclick = () => {
     state.voice = !state.voice;
     save();
-    if (state.voice) speakStep(sayText(step), activity.audio ? `audio/${activity.id}/${index + 1}.mp3` : null);
+    if (state.voice) playStep(activity, index);
     else stopVoice();
     drawPlayer();
-  };
-  const voicePick = $('#player-voice-name');
-  if (voicePick) voicePick.onchange = () => {
-    state.voiceName = voicePick.value;
-    save();
-    speakStep('Hi, I’m PAAL. Is this voice nice and calm for you?');
   };
 }
 
@@ -1556,8 +1509,8 @@ function tick() {
   if (step.breathe) {
     $('#breath-cue').textContent = breathCue(step, player.left);
     const second = (stepLength(step) - player.left) % BREATH_CYCLE;
-    const cue = { 0: 'Breathe in', 2: 'a little more', 3: 'and slowly, out' }[second];
-    if (cue) speakCue(cue);
+    const cue = { 0: 'in', 2: 'more', 3: 'out' }[second];
+    if (cue) playCue(player.activity, cue);
   }
 }
 
