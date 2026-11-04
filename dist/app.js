@@ -19,8 +19,8 @@
 const SOURCES = {
   bedtimeRoutine: {
     title: 'A nightly bedtime routine: impact on sleep in young children (Mindell et al., 2009)',
-    publisher: 'SLEEP journal, via PubMed',
-    url: 'https://pubmed.ncbi.nlm.nih.gov/?term=Mindell+nightly+bedtime+routine+impact+on+sleep'
+    publisher: 'SLEEP journal',
+    url: 'https://doi.org/10.1093/sleep/32.5.599'
   },
   mediaPlan: {
     title: 'Family Media Plan',
@@ -46,6 +46,21 @@ const SOURCES = {
     title: 'Child-led Play',
     publisher: 'Centers for Disease Control and Prevention',
     url: 'https://www.cdc.gov/parenting-toddlers/communication/child-led-play.html'
+  },
+  cyclicSighing: {
+    title: 'Brief structured respiration practices enhance mood and reduce physiological arousal (Balban et al., 2023)',
+    publisher: 'Cell Reports Medicine',
+    url: 'https://doi.org/10.1016/j.xcrm.2022.100895'
+  },
+  selfCompassion: {
+    title: 'Self-Compassion Break',
+    publisher: 'Dr. Kristin Neff',
+    url: 'https://self-compassion.org/'
+  },
+  mindfulParenting: {
+    title: 'The effect of mindfulness interventions for parents on parenting stress and youth psychological outcomes: a meta-analysis (Burgdorf, Szabó & Abbott, 2019)',
+    publisher: 'Frontiers in Psychology',
+    url: 'https://doi.org/10.3389/fpsyg.2019.01336'
   }
 };
 
@@ -199,6 +214,76 @@ const LESSONS = [
 ];
 
 
+// Guided activities below the chat. PAAL walks you through each step.
+// A step lasts `secs` seconds, or `breathe` breathing cycles of 9 seconds
+// (2s in through the nose, 1s extra sip in, 6s slowly out through the mouth).
+// `{child}` is replaced with the children's names.
+const BREATH_CYCLE = 9;
+const ACTIVITIES = [
+  {
+    id: 'parent-reset',
+    title: 'Parent reset',
+    kind: 'Guided meditation · for you',
+    minutes: 4,
+    tone: 'lav',
+    summary: 'A short breathing and self-kindness practice for when you feel stretched thin.',
+    basedOn: 'Cyclic sighing (Stanford study, Balban et al., 2023), Kristin Neff’s self-compassion break, and mindful-parenting research',
+    sources: [SOURCES.cyclicSighing, SOURCES.selfCompassion, SOURCES.mindfulParenting],
+    steps: [
+      { title: 'Arrive', secs: 20, say: 'Hi, I’m PAAL. Let’s take a few minutes, just for you. Sit or stand somewhere comfortable. You don’t need to do this perfectly. Just follow along.' },
+      { title: 'Notice', secs: 25, say: 'Feel where your body touches the chair or the floor. Let your shoulders drop a little. Notice your breathing, without trying to change it.' },
+      { title: 'Cyclic sighing', breathe: 7, say: 'Now let’s breathe together. Breathe in through your nose, then take one more short sip of air on top. Then let it all out slowly through your mouth. Follow my circle.' },
+      { title: 'Soften', secs: 30, say: 'Let your breathing go back to normal. Unclench your jaw. Relax your hands. Notice anything that feels tight, and let it soften just a little.' },
+      { title: 'Be kind to yourself', secs: 40, say: 'Put a hand on your chest if you like, and say to yourself: This is a hard moment. Hard moments are part of every parent’s life. May I be kind to myself right now.' },
+      { title: 'Choose one thing', secs: 25, say: 'Before you go back, pick one small intention. Maybe: I’ll take one breath before I respond. That’s it. That’s enough.' },
+      { title: 'All done', secs: 10, say: 'Well done. You can come back to this anytime, even for one minute. Doing it daily is where the benefits add up.' }
+    ]
+  },
+  {
+    id: 'special-time',
+    title: 'Special time',
+    kind: 'Play together · you and your child',
+    minutes: 5,
+    tone: 'gold',
+    summary: 'Five minutes where your child leads the play and you give them your full, warm attention.',
+    basedOn: '“Special time” and the PRIDE skills from Parent-Child Interaction Therapy (PCIT)',
+    sources: [SOURCES.pcit, SOURCES.cdcPlay],
+    steps: [
+      { title: 'Get ready', secs: 20, say: 'Put your phone away and pick a few toys that build or create, like blocks, crayons or play dough. Tell {child}: it’s special time, and you get to choose what we play.' },
+      { title: 'Praise', secs: 50, say: 'Praise something specific, like: I love how carefully you’re stacking those! Specific praise tells them exactly what you liked.' },
+      { title: 'Reflect', secs: 50, say: 'Repeat or gently build on what they say. If they say “a big tower”, you say: yes, a really big tower!' },
+      { title: 'Imitate', secs: 50, say: 'Copy what they’re doing. If they draw a sun, draw a sun too. It shows you’re interested in their game.' },
+      { title: 'Describe', secs: 50, say: 'Narrate like a friendly sports announcer: You’re putting the red block on top. Now you’re adding a door.' },
+      { title: 'Enjoy', secs: 50, say: 'Show you’re having fun: smile, laugh, use a warm voice. Try to skip questions, instructions and corrections. Just follow their lead.' },
+      { title: 'Wrap up', secs: 20, say: 'Let them know special time is ending, and thank them: I loved playing with you. Doing this every day, even for five minutes, makes the biggest difference.' }
+    ]
+  }
+];
+
+// Screen-free ideas PAAL suggests in the chat, matched to the child's age.
+// ages = [youngest, oldest]; anywhere = needs no supplies (good for waiting rooms or the car)
+const QUICK_IDEAS = [
+  { title: 'Mirror faces', ages: [0, 2], anywhere: true, how: 'Make a surprised face, a silly face, a happy face, and let them copy you (or copy them!).' },
+  { title: 'Sing and bounce', ages: [0, 3], anywhere: true, how: 'A knee-bounce song like “Row, Row, Row Your Boat” with a big “whee!” at the end.' },
+  { title: 'Pots-and-spoons band', ages: [0, 3], how: 'Hand over a pot and a wooden spoon and drum along to a song you sing together.' },
+  { title: 'Freeze dance', ages: [2, 10], how: 'Sing or hum a song and stop suddenly. Everyone freezes like a statue!' },
+  { title: 'I spy colors', ages: [2, 12], anywhere: true, how: '“I spy something… blue!” Take turns guessing and spying.' },
+  { title: 'Tape road', ages: [2, 6], how: 'Make a road on the floor with painter’s tape and drive toy cars along it.' },
+  { title: 'Little kitchen helper', ages: [2, 10], how: 'Give a real job: washing vegetables, stirring, tearing lettuce, setting out spoons.' },
+  { title: 'Water painting', ages: [2, 8], how: 'A brush and a cup of water on the sidewalk or a fence. The art “disappears” as it dries.' },
+  { title: 'Simon says', ages: [3, 10], anywhere: true, how: 'Mix silly moves (hop like a frog) with calm ones (touch your nose, whisper your name).' },
+  { title: 'Sock basketball', ages: [3, 12], how: 'Roll up socks and shoot them into a laundry basket. Step back after every basket.' },
+  { title: 'Scavenger hunt', ages: [3, 12], anywhere: true, how: 'Find something red, something soft and something round. Older kids: something that starts with “B”.' },
+  { title: 'Pillow fort', ages: [3, 10], how: 'Couch cushions and a blanket. Read or play inside with a flashlight.' },
+  { title: 'Story chain', ages: [4, 17], anywhere: true, how: 'Take turns adding one sentence to a silly story: “Once there was a dragon who hated…”' },
+  { title: 'Would you rather', ages: [5, 17], anywhere: true, how: '“Would you rather have a pet dinosaur or a flying bike?” Take turns asking.' },
+  { title: 'Paper airplane contest', ages: [5, 17], how: 'Fold planes and see whose flies furthest, then try a new design.' },
+  { title: 'Quick card game', ages: [5, 17], how: 'A round of Go Fish, War or Uno.' },
+  { title: '20 questions', ages: [6, 17], anywhere: true, how: 'Think of an animal or a person; everyone else asks yes/no questions to guess it.' },
+  { title: 'Snack chef', ages: [6, 17], how: 'Let them make a snack for everyone: fruit skewers, a sandwich or popcorn.' }
+];
+
+
 /* ---------- 2. STATE ---------- */
 
 // A different key from Lili's version ('paal-prototype'), so the two never clash.
@@ -208,13 +293,16 @@ const STORAGE_KEY = 'paal-andres';
 // completed: lesson ids · chat: [{ from: 'me', text } | { from: 'paal', html }]
 // care: Lili's Care data – caregivers, care blocks, handoff updates, help requests
 // activeChildId: the child picked on the Care page
+// activityRuns: { activityId: times finished } · voice: PAAL reads guided activities aloud
 function emptyState() {
   return {
     profile: null,
     completed: [],
     chat: [],
     care: { caregivers: [], blocks: [], updates: [], requests: [] },
-    activeChildId: null
+    activeChildId: null,
+    activityRuns: {},
+    voice: true
   };
 }
 
@@ -1125,9 +1213,13 @@ function bindCare() {
 function paalScreen() {
   const kids = state.profile.children;
   const firstName = kids[0]?.name || 'my child';
-  const prompts = STRUGGLES
-    .filter(s => state.profile.struggles.includes(s.id))
-    .map(s => capitalize(s.example.replace('{child}', firstName)));
+  const prompts = [
+    `Give me quick screen-free ideas to distract ${firstName} right now`,
+    `We’re stuck waiting. Quick ideas to keep ${firstName} busy?`,
+    ...STRUGGLES
+      .filter(s => state.profile.struggles.includes(s.id))
+      .map(s => capitalize(s.example.replace('{child}', firstName)))
+  ];
 
   return `<div class="paal-page">
     <p class="kids-line">Here for
@@ -1154,7 +1246,35 @@ function paalScreen() {
 
     <p class="fine-print">PAAL shares general, research-based ideas, not medical advice.
       ${state.chat.length ? '<button id="clear-chat" class="link-btn">Clear chat</button>' : ''}</p>
+
+    <section class="activities">
+      <h2 class="section-title">Guided by PAAL</h2>
+      <p class="muted">Press start and PAAL will walk you through it, step by step.</p>
+      <div class="activity-grid">${ACTIVITIES.map(activityCard).join('')}</div>
+    </section>
   </div>`;
+}
+
+function activityCard(activity) {
+  const runs = state.activityRuns[activity.id] || 0;
+  const firstKid = state.profile.children[0];
+  const art = activity.id === 'parent-reset'
+    ? `<div class="mini-stage"><span class="mini-ring"></span>${paal('paal-md')}</div>`
+    : `<div class="mini-stage duo">${paal('paal-md', true)}${kid(CHILD_TONES[0], firstKid?.age ?? 4)}</div>`;
+  return `<article class="card activity-card tone-${activity.tone}">
+    <div class="activity-art">${art}</div>
+    <div class="activity-copy">
+      <p class="eyebrow">${activity.kind}</p>
+      <h3>${activity.title}</h3>
+      <p>${activity.summary}</p>
+      <p class="method">Based on: ${activity.basedOn}.
+        ${activity.sources.map((s, i) => `<a href="${s.url}" target="_blank" rel="noopener">Source ${i + 1}</a>`).join(' · ')}</p>
+      <div class="activity-foot">
+        <span class="muted">${activity.minutes} min${runs ? ` · done ${runs}×` : ''}</span>
+        <button type="button" class="btn primary" data-activity="${activity.id}">▶ Start</button>
+      </div>
+    </div>
+  </article>`;
 }
 
 
@@ -1194,6 +1314,10 @@ function paalReply(text) {
     if (score > bestScore) { best = s; bestScore = score; }
   }
 
+  // "Give me ideas now" wins when it's at least as strong as a topic match
+  const quickScore = (t.match(QUICK) || []).length;
+  if (quickScore && quickScore >= bestScore) return quickIdeasReply(t, kid ? [kid] : kids);
+
   if (!best) {
     return `<p>I’m not sure I understood that one yet. I’m a prototype, so right now I know most about
       <strong>sleep</strong>, <strong>screens</strong>, <strong>tantrums</strong> and <strong>everyday connection</strong>.
@@ -1205,6 +1329,26 @@ function paalReply(text) {
     <ol>${best.steps.map(step => `<li>${step}</li>`).join('')}</ol>
     <p class="chat-links"><a href="#learn/${best.lessonId}">Open the full lesson</a> ·
       <a href="${best.source.url}" target="_blank" rel="noopener">Source</a></p>`;
+}
+
+const QUICK = /\b(distract\w*|bored\w*|ideas?|quick\w*|right now|something to do|activit\w*|busy|entertain\w*)\b/g;
+const ON_THE_GO = /\b(waiting|wait|car|restaurant|line|store|doctor|plane|airport|queue|stuck)\b/;
+
+// Three random screen-free ideas that fit every child the message is about
+function quickIdeasReply(text, children) {
+  const ages = children.map(c => Number(c.age));
+  const fits = idea => ages.every(a => a >= idea.ages[0] && a <= idea.ages[1]);
+  let pool = QUICK_IDEAS.filter(fits);
+  if (!pool.length) pool = QUICK_IDEAS.filter(idea => ages.some(a => a >= idea.ages[0] && a <= idea.ages[1]));
+  const onTheGo = ON_THE_GO.test(text);
+  if (onTheGo && pool.some(i => i.anywhere)) pool = pool.filter(i => i.anywhere);
+  const picks = pool.sort(() => Math.random() - .5).slice(0, 3);
+  const who = esc(listNames(children.map(c => c.name)));
+
+  return `<p>Here are a few screen-free ideas for ${who} you can start right now${onTheGo ? ', no supplies needed' : ''}:</p>
+    <ul class="idea-list">${picks.map(i => `<li><strong>${i.title}:</strong> ${i.how}</li>`).join('')}</ul>
+    <p><small>Tip: offer a choice of two (“${picks[0]?.title} or ${picks[1]?.title}?”). Kids join in more easily when they get to pick.
+      Ask me again for different ideas.</small></p>`;
 }
 
 let replying = false;
@@ -1245,9 +1389,149 @@ function bindChat() {
     if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(input.value); }
   };
   document.querySelectorAll('[data-prompt]').forEach(chip => { chip.onclick = () => sendMessage(chip.dataset.prompt); });
+  document.querySelectorAll('[data-activity]').forEach(button => { button.onclick = () => startActivity(button.dataset.activity); });
   const clear = $('#clear-chat');
   if (clear) clear.onclick = () => { state.chat = []; save(); render(); };
 }
+
+
+/* Guided activity player: a full-screen, calm view where PAAL leads each step
+   with a timer, a breathing circle and (optionally) a spoken voice. */
+
+let player = null; // { activity, step, left, paused, timer }
+
+function stepLength(step) {
+  return step.breathe ? step.breathe * BREATH_CYCLE : step.secs;
+}
+
+function sayText(step) {
+  return step.say.replace('{child}', childNames() || 'your child');
+}
+
+function speak(text) {
+  if (!('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  if (!state.voice || !text) return;
+  const line = new SpeechSynthesisUtterance(text);
+  line.rate = .9;
+  line.pitch = 1.05;
+  speechSynthesis.speak(line);
+}
+
+const clock = secs => `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+
+// Where we are in a breathing cycle: 0–2s in, 2–3s extra sip, 3–9s out
+function breathCue(step, left) {
+  const elapsed = stepLength(step) - left;
+  const t = elapsed % BREATH_CYCLE;
+  const cue = t < 2 ? 'Breathe in through your nose' : t < 3 ? 'One more little sip in' : 'Slowly out through your mouth';
+  return `${cue} · breath ${Math.min(Math.floor(elapsed / BREATH_CYCLE) + 1, step.breathe)} of ${step.breathe}`;
+}
+
+function startActivity(id) {
+  closeActivity();
+  player = { activity: ACTIVITIES.find(a => a.id === id), step: 0, left: 0, paused: false };
+  document.body.insertAdjacentHTML('beforeend',
+    `<div id="player" class="player tone-${player.activity.tone}" role="dialog" aria-modal="true" aria-label="${player.activity.title}"></div>`);
+  document.body.classList.add('no-scroll');
+  goToStep(0);
+  player.timer = setInterval(tick, 1000);
+}
+
+function goToStep(index) {
+  const steps = player.activity.steps;
+  if (index >= steps.length) { finishActivity(); return; }
+  player.step = index;
+  player.left = stepLength(steps[index]);
+  drawPlayer();
+  speak(sayText(steps[index]));
+}
+
+function drawPlayer() {
+  const { activity, step: index, paused } = player;
+  const step = activity.steps[index];
+  const box = $('#player');
+  box.classList.toggle('paused', paused);
+  box.innerHTML = `
+    <div class="player-top">
+      <span class="eyebrow">${activity.title} · ${activity.kind}</span>
+      <button type="button" class="player-close" id="player-close" aria-label="Close">✕</button>
+    </div>
+    <div class="player-stage ${step.breathe ? 'breathing' : ''} ${activity.id === 'special-time' ? 'duo' : ''}">
+      <span class="breath-ring" style="animation-delay: -${(stepLength(step) - player.left) % BREATH_CYCLE}s"></span>
+      ${paal('paal-lg player-paal', !step.breathe)}
+      ${activity.id === 'special-time' ? kid(CHILD_TONES[0], state.profile.children[0]?.age ?? 4) : ''}
+    </div>
+    <p class="breath-cue" id="breath-cue">${step.breathe ? breathCue(step, player.left) : '&nbsp;'}</p>
+    <h2>${step.title}</h2>
+    <p class="player-say">${esc(sayText(step))}</p>
+    <div class="player-dots" aria-label="Step ${index + 1} of ${activity.steps.length}">
+      ${activity.steps.map((_, i) => `<span class="${i < index ? 'done' : i === index ? 'now' : ''}"></span>`).join('')}
+    </div>
+    <p class="player-time" id="player-time">${clock(player.left)}</p>
+    <div class="player-controls">
+      <button type="button" class="btn ghost" id="player-voice" aria-pressed="${state.voice}">${state.voice ? '🔊 Voice on' : '🔈 Voice off'}</button>
+      <button type="button" class="btn primary" id="player-pause">${paused ? '▶ Resume' : '❚❚ Pause'}</button>
+      <button type="button" class="btn ghost" id="player-next">Next →</button>
+    </div>`;
+
+  $('#player-close').onclick = closeActivity;
+  $('#player-next').onclick = () => goToStep(player.step + 1);
+  $('#player-pause').onclick = () => {
+    player.paused = !player.paused;
+    if ('speechSynthesis' in window) player.paused ? speechSynthesis.pause() : speechSynthesis.resume();
+    drawPlayer();
+  };
+  $('#player-voice').onclick = () => {
+    state.voice = !state.voice;
+    save();
+    speak(state.voice ? sayText(step) : '');
+    drawPlayer();
+  };
+}
+
+function tick() {
+  if (!player || player.paused || player.done) return;
+  player.left -= 1;
+  if (player.left <= 0) { goToStep(player.step + 1); return; }
+  const step = player.activity.steps[player.step];
+  $('#player-time').textContent = clock(player.left);
+  if (step.breathe) $('#breath-cue').textContent = breathCue(step, player.left);
+}
+
+function finishActivity() {
+  const { activity } = player;
+  player.done = true;
+  clearInterval(player.timer);
+  state.activityRuns[activity.id] = (state.activityRuns[activity.id] || 0) + 1;
+  save();
+  $('#player').innerHTML = `
+    <div class="player-top"><span class="eyebrow">${activity.title}</span>
+      <button type="button" class="player-close" id="player-close" aria-label="Close">✕</button></div>
+    <div class="player-stage">${paal('paal-lg player-paal', true)}</div>
+    <h2>Nice work!</h2>
+    <p class="player-say">You’ve done ${activity.title.toLowerCase()} ${state.activityRuns[activity.id]} time${state.activityRuns[activity.id] > 1 ? 's' : ''}. A little every day adds up.</p>
+    <p class="player-sources">Based on: ${activity.sources.map(s => `<a href="${s.url}" target="_blank" rel="noopener">${s.title}</a>`).join(' · ')}</p>
+    <div class="player-controls">
+      <button type="button" class="btn ghost" id="player-again">Do it again</button>
+      <button type="button" class="btn primary" id="player-done">Back to PAAL</button>
+    </div>`;
+  $('#player-close').onclick = closeActivity;
+  $('#player-done').onclick = closeActivity;
+  $('#player-again').onclick = () => startActivity(activity.id);
+}
+
+function closeActivity() {
+  if (!player) return;
+  clearInterval(player.timer);
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  $('#player')?.remove();
+  document.body.classList.remove('no-scroll');
+  player = null;
+  if (currentRoute().page === 'paal') render(); // refresh "done N×"
+}
+
+document.addEventListener('keydown', event => { if (event.key === 'Escape') closeActivity(); });
 
 
 /* ---------- 6. ROUTER ---------- */

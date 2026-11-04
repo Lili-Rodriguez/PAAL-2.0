@@ -19,18 +19,25 @@ To try it on a phone, use your computer's local IP address (same Wi-Fi), e.g.
 - **Sign-up** (first visit): your name, your children (name and age), and where you
   struggle: putting them to sleep, taking them off screens, controlling temper
   tantrums, or "I just want to learn".
-- **Home**: your children (each with a mini PAAL character), Talk to PAAL, a
-  colorful lesson-progress ring, a Schedule care card, and PAAL's research-based
-  tips for the struggles you chose.
-- **Learn**: lessons with a progress bar at the top. Mark a lesson complete to fill
-  in the progress.
+- **Home**: your children (each with a character that matches their age), Talk to
+  PAAL, a colorful lesson-progress ring, a Schedule care card, and PAAL's
+  research-based tips for the struggles you chose.
+- **Learn**: illustrated lessons with a progress bar at the top. Mark a lesson
+  complete to fill in the progress.
 - **Care**: ported from Lili's Care page (her commit `fcd8050`): today's care blocks,
   handoff updates, help requests, caregiver permissions, and a shareable caregiver
   guide. Local demo only. Nothing is sent to anyone. Her "Family toolkit" section
   was left out because it was the old Village content.
 - **PAAL**: a chat box with the PAAL mascot peeking over it. Answers are
   **scripted**: PAAL matches keywords (sleep, screens, tantrums, learning) to
-  prepared, research-based answers. It is not a live AI.
+  prepared, research-based answers. It is not a live AI. Asking for quick ideas
+  ("distract", "bored", "waiting"…) returns screen-free activities matched to the
+  child's age (`QUICK_IDEAS`).
+- **Guided by PAAL** (below the chat): full-screen activities where PAAL leads each
+  step with a timer and an optional spoken voice (browser speech):
+  - *Parent reset*, a ~4-minute guided meditation: cyclic sighing (Balban et al.,
+    2023), Kristin Neff's self-compassion break, and a mindful-parenting intention.
+  - *Special time*, 5 minutes of child-led play coached with PCIT's PRIDE skills.
 
 | Struggle | Answer based on |
 |---|---|
@@ -50,7 +57,7 @@ To try it on a phone, use your computer's local IP address (same Wi-Fi), e.g.
   6. **ROUTER**: page addresses (`#home`, `#learn`, `#learn/<lesson>`, `#care`, `#paal`, `#edit`)
 - `dist/styles.css`: colors and fonts at the top (`:root` and the `.tone-*` colors),
   then one section per page.
-- `dist/index.html`: page title. Bump `?v=12` after editing CSS/JS so phones
+- `dist/index.html`: page title. Bump `?v=13` after editing CSS/JS so phones
   don't show a cached copy.
 - `index.html` (repo root): only redirects to `dist/` for GitHub Pages.
 
