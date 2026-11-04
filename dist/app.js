@@ -229,6 +229,7 @@ const ACTIVITIES = [
     summary: 'A short breathing and self-kindness practice for when you feel stretched thin.',
     basedOn: 'Cyclic sighing (Stanford study, Balban et al., 2023), Kristin Neff’s self-compassion break, and mindful-parenting research',
     sources: [SOURCES.cyclicSighing, SOURCES.selfCompassion, SOURCES.mindfulParenting],
+    audio: false, // set to true once recordings are in dist/audio/parent-reset/1.mp3 … 7.mp3
     steps: [
       { title: 'Arrive', secs: 20, say: 'Hi, I’m PAAL. Let’s take a few minutes, just for you. Sit or stand somewhere comfortable. You don’t need to do this perfectly. Just follow along.' },
       { title: 'Notice', secs: 25, say: 'Feel where your body touches the chair or the floor. Let your shoulders drop a little. Notice your breathing, without trying to change it.' },
@@ -237,25 +238,6 @@ const ACTIVITIES = [
       { title: 'Be kind to yourself', secs: 40, say: 'Put a hand on your chest if you like, and say to yourself: This is a hard moment. Hard moments are part of every parent’s life. May I be kind to myself right now.' },
       { title: 'Choose one thing', secs: 25, say: 'Before you go back, pick one small intention. Maybe: I’ll take one breath before I respond. That’s it. That’s enough.' },
       { title: 'All done', secs: 10, say: 'Well done. You can come back to this anytime, even for one minute. Doing it daily is where the benefits add up.' }
-    ]
-  },
-  {
-    id: 'special-time',
-    title: 'Special time',
-    kind: 'Play together · you and your child',
-    minutes: 5,
-    tone: 'gold',
-    summary: 'Five minutes where your child leads the play and you give them your full, warm attention.',
-    basedOn: '“Special time” and the PRIDE skills from Parent-Child Interaction Therapy (PCIT)',
-    sources: [SOURCES.pcit, SOURCES.cdcPlay],
-    steps: [
-      { title: 'Get ready', secs: 20, say: 'Put your phone away and pick a few toys that build or create, like blocks, crayons or play dough. Tell {child}: it’s special time, and you get to choose what we play.' },
-      { title: 'Praise', secs: 50, say: 'Praise something specific, like: I love how carefully you’re stacking those! Specific praise tells them exactly what you liked.' },
-      { title: 'Reflect', secs: 50, say: 'Repeat or gently build on what they say. If they say “a big tower”, you say: yes, a really big tower!' },
-      { title: 'Imitate', secs: 50, say: 'Copy what they’re doing. If they draw a sun, draw a sun too. It shows you’re interested in their game.' },
-      { title: 'Describe', secs: 50, say: 'Narrate like a friendly sports announcer: You’re putting the red block on top. Now you’re adding a door.' },
-      { title: 'Enjoy', secs: 50, say: 'Show you’re having fun: smile, laugh, use a warm voice. Try to skip questions, instructions and corrections. Just follow their lead.' },
-      { title: 'Wrap up', secs: 20, say: 'Let them know special time is ending, and thank them: I loved playing with you. Doing this every day, even for five minutes, makes the biggest difference.' }
     ]
   }
 ];
@@ -1257,12 +1239,8 @@ function paalScreen() {
 
 function activityCard(activity) {
   const runs = state.activityRuns[activity.id] || 0;
-  const firstKid = state.profile.children[0];
-  const art = activity.id === 'parent-reset'
-    ? `<div class="mini-stage"><span class="mini-ring"></span>${paal('paal-md')}</div>`
-    : `<div class="mini-stage duo">${paal('paal-md', true)}${kid(CHILD_TONES[0], firstKid?.age ?? 4)}</div>`;
   return `<article class="card activity-card tone-${activity.tone}">
-    <div class="activity-art">${art}</div>
+    <div class="activity-art"><div class="mini-stage"><span class="mini-ring"></span>${paal('paal-md')}</div></div>
     <div class="activity-copy">
       <p class="eyebrow">${activity.kind}</p>
       <h3>${activity.title}</h3>
@@ -1408,14 +1386,84 @@ function sayText(step) {
   return step.say.replace('{child}', childNames() || 'your child');
 }
 
-function speak(text) {
-  if (!('speechSynthesis' in window)) return;
-  speechSynthesis.cancel();
-  if (!state.voice || !text) return;
+/* PAAL's voice.
+   Most human: recorded audio. If an activity has `audio: true`, each step plays
+   audio/<activity-id>/<step number>.mp3 (e.g. audio/parent-reset/1.mp3).
+   Otherwise PAAL uses the most natural voice the device offers, read slowly,
+   one sentence at a time with calm pauses. */
+
+// Best-sounding voices first. "Natural" (Edge), "Premium"/"Enhanced" (Apple)
+// and Google voices sound far more human than the basic ones.
+const PREFERRED_VOICES = [/natural/i, /premium/i, /enhanced/i, /neural/i, /^Google US English/, /^Google UK English Female/,
+  /^(Ava|Zoe|Allison|Susan|Serena|Samantha|Moira|Karen|Tessa)\b/];
+
+let voices = [];
+let speechRun = 0;      // bumps on every new line so older lines stop
+let voiceBusy = false;  // true while PAAL is reading a step
+let currentLine = null; // kept so the browser doesn't drop it before it ends
+let clip = null;        // recorded audio that is playing
+
+function loadVoices() {
+  voices = 'speechSynthesis' in window ? speechSynthesis.getVoices().filter(v => v.lang.startsWith('en')) : [];
+}
+
+function chosenVoice() {
+  return voices.find(v => v.name === state.voiceName)
+    || PREFERRED_VOICES.map(pattern => voices.find(v => pattern.test(v.name))).find(Boolean)
+    || voices[0];
+}
+
+function utter(text, rate) {
   const line = new SpeechSynthesisUtterance(text);
-  line.rate = .9;
-  line.pitch = 1.05;
-  speechSynthesis.speak(line);
+  const voice = chosenVoice();
+  if (voice) { line.voice = voice; line.lang = voice.lang; }
+  line.rate = rate;   // slower = calmer
+  line.pitch = .95;   // a touch lower = softer
+  line.volume = .9;
+  currentLine = line;
+  return line;
+}
+
+function stopVoice() {
+  speechRun += 1;
+  voiceBusy = false;
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  if (clip) { clip.pause(); clip = null; }
+}
+
+function pauseVoice(paused) {
+  if (clip) paused ? clip.pause() : clip.play().catch(() => {});
+  else if ('speechSynthesis' in window) paused ? speechSynthesis.pause() : speechSynthesis.resume();
+}
+
+// Read a step: the recording if there is one, otherwise sentence by sentence
+function speakStep(text, audioSrc = null) {
+  stopVoice();
+  if (!state.voice) return;
+  if (audioSrc) { clip = new Audio(audioSrc); clip.play().catch(() => {}); return; }
+  if (!('speechSynthesis' in window) || !text) return;
+  const run = speechRun;
+  const sentences = text.match(/[^.!?:]+[.!?:]*/g).map(s => s.trim()).filter(Boolean);
+  voiceBusy = true;
+  const next = i => {
+    if (run !== speechRun) return;
+    if (i >= sentences.length) { voiceBusy = false; return; }
+    const line = utter(sentences[i], .82);
+    line.onend = () => setTimeout(() => next(i + 1), 700);
+    speechSynthesis.speak(line);
+  };
+  next(0);
+}
+
+// Short, soft breathing cues; skipped while PAAL is still talking
+function speakCue(text) {
+  if (!state.voice || voiceBusy || clip || !('speechSynthesis' in window)) return;
+  speechSynthesis.speak(utter(text, .72));
+}
+
+if ('speechSynthesis' in window) {
+  loadVoices();
+  speechSynthesis.onvoiceschanged = () => { loadVoices(); if (player && !player.done) drawPlayer(); };
 }
 
 const clock = secs => `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
@@ -1444,7 +1492,7 @@ function goToStep(index) {
   player.step = index;
   player.left = stepLength(steps[index]);
   drawPlayer();
-  speak(sayText(steps[index]));
+  speakStep(sayText(steps[index]), player.activity.audio ? `audio/${player.activity.id}/${index + 1}.mp3` : null);
 }
 
 function drawPlayer() {
@@ -1457,10 +1505,9 @@ function drawPlayer() {
       <span class="eyebrow">${activity.title} · ${activity.kind}</span>
       <button type="button" class="player-close" id="player-close" aria-label="Close">✕</button>
     </div>
-    <div class="player-stage ${step.breathe ? 'breathing' : ''} ${activity.id === 'special-time' ? 'duo' : ''}">
+    <div class="player-stage ${step.breathe ? 'breathing' : ''}">
       <span class="breath-ring" style="animation-delay: -${(stepLength(step) - player.left) % BREATH_CYCLE}s"></span>
       ${paal('paal-lg player-paal', !step.breathe)}
-      ${activity.id === 'special-time' ? kid(CHILD_TONES[0], state.profile.children[0]?.age ?? 4) : ''}
     </div>
     <p class="breath-cue" id="breath-cue">${step.breathe ? breathCue(step, player.left) : '&nbsp;'}</p>
     <h2>${step.title}</h2>
@@ -1473,20 +1520,30 @@ function drawPlayer() {
       <button type="button" class="btn ghost" id="player-voice" aria-pressed="${state.voice}">${state.voice ? '🔊 Voice on' : '🔈 Voice off'}</button>
       <button type="button" class="btn primary" id="player-pause">${paused ? '▶ Resume' : '❚❚ Pause'}</button>
       <button type="button" class="btn ghost" id="player-next">Next →</button>
-    </div>`;
+    </div>
+    ${state.voice && !activity.audio && voices.length > 1 ? `<label class="voice-pick">PAAL’s voice
+      <select id="player-voice-name">${voices.map(v => `<option value="${esc(v.name)}" ${v.name === chosenVoice()?.name ? 'selected' : ''}>${esc(v.name)} (${esc(v.lang)})</option>`).join('')}</select>
+    </label>` : ''}`;
 
   $('#player-close').onclick = closeActivity;
   $('#player-next').onclick = () => goToStep(player.step + 1);
   $('#player-pause').onclick = () => {
     player.paused = !player.paused;
-    if ('speechSynthesis' in window) player.paused ? speechSynthesis.pause() : speechSynthesis.resume();
+    pauseVoice(player.paused);
     drawPlayer();
   };
   $('#player-voice').onclick = () => {
     state.voice = !state.voice;
     save();
-    speak(state.voice ? sayText(step) : '');
+    if (state.voice) speakStep(sayText(step), activity.audio ? `audio/${activity.id}/${index + 1}.mp3` : null);
+    else stopVoice();
     drawPlayer();
+  };
+  const voicePick = $('#player-voice-name');
+  if (voicePick) voicePick.onchange = () => {
+    state.voiceName = voicePick.value;
+    save();
+    speakStep('Hi, I’m PAAL. Is this voice nice and calm for you?');
   };
 }
 
@@ -1496,7 +1553,12 @@ function tick() {
   if (player.left <= 0) { goToStep(player.step + 1); return; }
   const step = player.activity.steps[player.step];
   $('#player-time').textContent = clock(player.left);
-  if (step.breathe) $('#breath-cue').textContent = breathCue(step, player.left);
+  if (step.breathe) {
+    $('#breath-cue').textContent = breathCue(step, player.left);
+    const second = (stepLength(step) - player.left) % BREATH_CYCLE;
+    const cue = { 0: 'Breathe in', 2: 'a little more', 3: 'and slowly, out' }[second];
+    if (cue) speakCue(cue);
+  }
 }
 
 function finishActivity() {
@@ -1524,7 +1586,7 @@ function finishActivity() {
 function closeActivity() {
   if (!player) return;
   clearInterval(player.timer);
-  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  stopVoice();
   $('#player')?.remove();
   document.body.classList.remove('no-scroll');
   player = null;

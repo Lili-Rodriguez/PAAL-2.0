@@ -657,10 +657,10 @@ legend { margin-bottom: 12px; padding: 0; font-size: 19px; font-weight: 650; let
 .activities { margin-top: 44px; }
 .activities .section-title { margin: 0 0 4px; }
 .activities > .muted { margin: 0 0 16px; }
-.activity-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.activity-grid { display: grid; gap: 16px; }
 
-.activity-card { display: flex; flex-direction: column; overflow: hidden; padding: 0; }
-.activity-art { display: grid; place-items: center; height: 150px; background: var(--tone-bg); }
+.activity-card { display: grid; grid-template-columns: 220px 1fr; overflow: hidden; padding: 0; }
+.activity-art { display: grid; place-items: center; min-height: 170px; background: var(--tone-bg); }
 .activity-copy { display: flex; flex: 1; flex-direction: column; padding: 18px 22px 20px; }
 .activity-copy .eyebrow { margin-bottom: 4px; color: var(--tone-fg); }
 .activity-copy h3 { font-size: 21px; }
@@ -669,12 +669,7 @@ legend { margin-bottom: 12px; padding: 0; font-size: 19px; font-weight: 650; let
 .activity-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; padding-top: 6px; }
 
 .mini-stage { position: relative; display: grid; place-items: center; width: 140px; height: 130px; }
-.mini-stage .paal, .mini-stage .kid { position: relative; z-index: 1; }
-.player-stage .kid { position: relative; width: 84px; margin-left: -8px; }
-.player-stage.duo { display: flex; align-items: flex-end; justify-content: center; padding-bottom: 34px; }
-.player-stage.duo .breath-ring { left: 30px; top: 30px; }
-.mini-stage.duo { display: flex; align-items: flex-end; justify-content: center; gap: 6px; width: auto; }
-.mini-stage.duo .kid { width: 62px; }
+.mini-stage .paal { position: relative; z-index: 1; }
 .mini-ring, .breath-ring {
   position: absolute;
   border-radius: 50%;
@@ -726,6 +721,9 @@ legend { margin-bottom: 12px; padding: 0; font-size: 19px; font-weight: 650; let
 .player-controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .player.paused .breath-ring, .player.paused .player-paal, .player.paused .paal * { animation-play-state: paused; }
 
+.voice-pick { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin-top: 16px; color: var(--muted); font-size: 13px; }
+.voice-pick select { max-width: 260px; min-height: 36px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); font-size: 13px; }
+
 .idea-list { margin: 0 0 8px; padding-left: 18px; }
 .idea-list li { margin-bottom: 6px; }
 
@@ -737,7 +735,7 @@ legend { margin-bottom: 12px; padding: 0; font-size: 19px; font-weight: 650; let
 }
 
 @media (max-width: 700px) {
-  .activity-grid { grid-template-columns: 1fr; }
+  .activity-card { grid-template-columns: 1fr; }
   .player-stage { width: 220px; height: 220px; }
   .player-stage.breathing .breath-ring { width: 200px; height: 200px; }
   .player-paal { width: 124px; }

@@ -33,11 +33,25 @@ To try it on a phone, use your computer's local IP address (same Wi-Fi), e.g.
   prepared, research-based answers. It is not a live AI. Asking for quick ideas
   ("distract", "bored", "waiting"…) returns screen-free activities matched to the
   child's age (`QUICK_IDEAS`).
-- **Guided by PAAL** (below the chat): full-screen activities where PAAL leads each
-  step with a timer and an optional spoken voice (browser speech):
-  - *Parent reset*, a ~4-minute guided meditation: cyclic sighing (Balban et al.,
-    2023), Kristin Neff's self-compassion break, and a mindful-parenting intention.
-  - *Special time*, 5 minutes of child-led play coached with PCIT's PRIDE skills.
+- **Guided by PAAL** (below the chat): *Parent reset*, a ~4-minute guided
+  meditation in a full-screen player with a timer, an animated breathing circle
+  and PAAL's voice: cyclic sighing (Balban et al., 2023), Kristin Neff's
+  self-compassion break, and a mindful-parenting intention.
+
+### PAAL's voice
+
+- By default PAAL uses the most natural voice the device offers, read slowly with
+  pauses between sentences and soft breathing cues. Parents can pick another voice
+  in the player.
+- Device voices vary a lot. For a much more human sound, download a better voice:
+  - **iPhone/iPad:** Settings → Accessibility → Spoken Content → Voices → English →
+    download an "Enhanced" or "Premium" voice (e.g. Ava or Zoe).
+  - **Mac:** System Settings → Accessibility → Spoken Content → System voice →
+    Manage Voices → download an Enhanced/Premium voice.
+  - **Windows:** Microsoft Edge includes "Natural" voices (e.g. Aria, Jenny).
+- **Recorded voice (most human):** put one audio file per step in
+  `dist/audio/parent-reset/1.mp3` … `7.mp3` (recorded by a person or made with an
+  AI voice service) and set `audio: true` on the activity in `app.js`.
 
 | Struggle | Answer based on |
 |---|---|
@@ -57,7 +71,7 @@ To try it on a phone, use your computer's local IP address (same Wi-Fi), e.g.
   6. **ROUTER**: page addresses (`#home`, `#learn`, `#learn/<lesson>`, `#care`, `#paal`, `#edit`)
 - `dist/styles.css`: colors and fonts at the top (`:root` and the `.tone-*` colors),
   then one section per page.
-- `dist/index.html`: page title. Bump `?v=13` after editing CSS/JS so phones
+- `dist/index.html`: page title. Bump `?v=14` after editing CSS/JS so phones
   don't show a cached copy.
 - `index.html` (repo root): only redirects to `dist/` for GitHub Pages.
 
