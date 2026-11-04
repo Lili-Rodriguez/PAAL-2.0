@@ -42,16 +42,16 @@ To try it on a phone, use your computer's local IP address (same Wi-Fi), e.g.
 
 - PAAL's voice is a set of real recordings in `dist/audio/parent-reset/`
   (`1.m4a` … `7.m4a`, one per step, plus the breathing cues `cue-in`, `cue-more`,
-  `cue-out`; about 750 KB in total). The app no longer uses the browser's
-  built-in voices.
+  `cue-out`; about 1 MB in total). The app does not use the browser's built-in
+  voices.
 - They were made with **[Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M)**,
-  an open-source text-to-speech model (Apache-2.0 license), using its "Heart"
-  voice (`af_heart`) at 0.88× speed with 0.8 s pauses between sentences. Kokoro
-  ran once, offline on a computer; visitors only download the small audio files.
+  an open-source text-to-speech model (Apache-2.0 license), using its soft, low
+  "Nicole" voice (`af_nicole`) at 0.9× speed with 1.2 s pauses between sentences.
+  Kokoro ran once, offline on a computer; visitors only download the audio files.
 - **If you change a step's text**, re-record it so the voice matches: install
   `kokoro-js` (npm) in a separate folder, generate each sentence with
-  `voice: 'af_heart', speed: 0.88`, join them with short pauses, and convert to
-  `.m4a`. Keep the file names the same.
+  `voice: 'af_nicole', speed: 0.9`, join them with 1.2 s pauses, convert to
+  `.m4a`, keep the file names, and bump `AUDIO_VERSION` in `app.js`.
 
 | Struggle | Answer based on |
 |---|---|
@@ -71,7 +71,7 @@ To try it on a phone, use your computer's local IP address (same Wi-Fi), e.g.
   6. **ROUTER**: page addresses (`#home`, `#learn`, `#learn/<lesson>`, `#care`, `#paal`, `#edit`)
 - `dist/styles.css`: colors and fonts at the top (`:root` and the `.tone-*` colors),
   then one section per page.
-- `dist/index.html`: page title. Bump `?v=15` after editing CSS/JS so phones
+- `dist/index.html`: page title. Bump `?v=16` after editing CSS/JS so phones
   don't show a cached copy.
 - `index.html` (repo root): only redirects to `dist/` for GitHub Pages.
 

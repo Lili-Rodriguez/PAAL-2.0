@@ -230,13 +230,13 @@ const ACTIVITIES = [
     basedOn: 'Cyclic sighing (Stanford study, Balban et al., 2023), Kristin Neff’s self-compassion break, and mindful-parenting research',
     sources: [SOURCES.cyclicSighing, SOURCES.selfCompassion, SOURCES.mindfulParenting],
     steps: [
-      { title: 'Arrive', secs: 20, say: 'Hi, I’m PAAL. Let’s take a few minutes, just for you. Sit or stand somewhere comfortable. You don’t need to do this perfectly. Just follow along.' },
+      { title: 'Arrive', secs: 26, say: 'Hi, I’m PAAL. Let’s take a few minutes, just for you. Sit or stand somewhere comfortable. You don’t need to do this perfectly. Just follow along.' },
       { title: 'Notice', secs: 25, say: 'Feel where your body touches the chair or the floor. Let your shoulders drop a little. Notice your breathing, without trying to change it.' },
-      { title: 'Cyclic sighing', breathe: 7, say: 'Now let’s breathe together. Breathe in through your nose, then take one more short sip of air on top. Then let it all out slowly through your mouth. Follow my circle.' },
+      { title: 'Cyclic sighing', breathe: 8, say: 'Now let’s breathe together. Breathe in through your nose, then take one more short sip of air on top. Then let it all out slowly through your mouth. Follow my circle.' },
       { title: 'Soften', secs: 30, say: 'Let your breathing go back to normal. Unclench your jaw. Relax your hands. Notice anything that feels tight, and let it soften just a little.' },
       { title: 'Be kind to yourself', secs: 40, say: 'Put a hand on your chest if you like, and say to yourself: This is a hard moment. Hard moments are part of every parent’s life. May I be kind to myself right now.' },
       { title: 'Choose one thing', secs: 25, say: 'Before you go back, pick one small intention. Maybe: I’ll take one breath before I respond. That’s it. That’s enough.' },
-      { title: 'All done', secs: 10, say: 'Well done. You can come back to this anytime, even for one minute. Doing it daily is where the benefits add up.' }
+      { title: 'All done', secs: 18, say: 'Well done. You can come back to this anytime, even for one minute. Doing it daily is where the benefits add up.' }
     ]
   }
 ];
@@ -1386,7 +1386,7 @@ function sayText(step) {
 }
 
 /* PAAL's voice: real recordings made with Kokoro-82M, an open-source (Apache-2.0)
-   text-to-speech model, using its warm "Heart" voice at a relaxed pace.
+   text-to-speech model, using its soft, low "Nicole" voice at a slow pace.
    Files: audio/<activity-id>/1.m4a, 2.m4a, … (one per step) plus short
    breathing cues (cue-in, cue-more, cue-out). If you change a step's text,
    re-record it (see README). */
@@ -1394,7 +1394,8 @@ function sayText(step) {
 let clip = null;    // the step recording that is playing
 let cueClip = null; // a breathing cue that is playing
 
-const audioPath = (activity, name) => `audio/${activity.id}/${name}.m4a`;
+const AUDIO_VERSION = 2; // bump after re-recording so phones don't play a cached old voice
+const audioPath = (activity, name) => `audio/${activity.id}/${name}.m4a?v=${AUDIO_VERSION}`;
 
 function stopVoice() {
   for (const audio of [clip, cueClip]) if (audio) audio.pause();
@@ -1425,6 +1426,7 @@ function playStep(activity, index) {
 function playCue(activity, name) {
   if (!state.voice || (clip && !clip.ended)) return;
   cueClip = new Audio(audioPath(activity, 'cue-' + name));
+  cueClip.volume = .6; // softer than the narration
   cueClip.play().catch(() => {});
 }
 
