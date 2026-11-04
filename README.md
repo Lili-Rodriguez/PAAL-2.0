@@ -40,18 +40,20 @@ To try it on a phone, use your computer's local IP address (same Wi-Fi), e.g.
 
 ### PAAL's voice
 
-- PAAL's voice is a set of real recordings in `dist/audio/parent-reset/`
-  (`1.m4a` … `7.m4a`, one per step, plus the breathing cues `cue-in`, `cue-more`,
-  `cue-out`; about 1 MB in total). The app does not use the browser's built-in
-  voices.
+- PAAL's voice is one set of real recordings in `dist/audio/parent-reset/`
+  (`1.m4a` … `7.m4a`, one per step, plus `cue-breath.m4a`, the spoken breathing
+  guide used for the first 3 breaths; about 600 KB in total). The app does not
+  use the browser's built-in voices.
 - They were made with **[Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M)**,
-  an open-source text-to-speech model (Apache-2.0 license), using its soft, low
-  "Nicole" voice (`af_nicole`) at 0.9× speed with 1.2 s pauses between sentences.
+  an open-source text-to-speech model (Apache-2.0 license), using its
+  highest-rated voice, "Heart" (`af_heart`), at normal speed. Each step is
+  generated as one passage so the pauses are the voice's own. The audio is then
+  slowed by 10% (smooth resampling), which makes it deeper and calmer.
   Kokoro ran once, offline on a computer; visitors only download the audio files.
-- **If you change a step's text**, re-record it so the voice matches: install
-  `kokoro-js` (npm) in a separate folder, generate each sentence with
-  `voice: 'af_nicole', speed: 0.9`, join them with 1.2 s pauses, convert to
-  `.m4a`, keep the file names, and bump `AUDIO_VERSION` in `app.js`.
+- **If you change a step's text**, re-record it the same way so the voice
+  matches: install `kokoro-js` (npm) in a separate folder, generate the whole step
+  with `voice: 'af_heart', speed: 1`, slow it to 90%, convert to `.m4a`, keep the
+  file name, and bump `AUDIO_VERSION` in `app.js`.
 
 | Struggle | Answer based on |
 |---|---|
@@ -71,7 +73,7 @@ To try it on a phone, use your computer's local IP address (same Wi-Fi), e.g.
   6. **ROUTER**: page addresses (`#home`, `#learn`, `#learn/<lesson>`, `#care`, `#paal`, `#edit`)
 - `dist/styles.css`: colors and fonts at the top (`:root` and the `.tone-*` colors),
   then one section per page.
-- `dist/index.html`: page title. Bump `?v=16` after editing CSS/JS so phones
+- `dist/index.html`: page title. Bump `?v=17` after editing CSS/JS so phones
   don't show a cached copy.
 - `index.html` (repo root): only redirects to `dist/` for GitHub Pages.
 

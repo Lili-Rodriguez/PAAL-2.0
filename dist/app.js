@@ -230,13 +230,13 @@ const ACTIVITIES = [
     basedOn: 'Cyclic sighing (Stanford study, Balban et al., 2023), Kristin Neff’s self-compassion break, and mindful-parenting research',
     sources: [SOURCES.cyclicSighing, SOURCES.selfCompassion, SOURCES.mindfulParenting],
     steps: [
-      { title: 'Arrive', secs: 26, say: 'Hi, I’m PAAL. Let’s take a few minutes, just for you. Sit or stand somewhere comfortable. You don’t need to do this perfectly. Just follow along.' },
+      { title: 'Arrive', secs: 18, say: 'Hi, I’m PAAL. Let’s take a few minutes, just for you. Sit or stand somewhere comfortable. You don’t need to do this perfectly. Just follow along.' },
       { title: 'Notice', secs: 25, say: 'Feel where your body touches the chair or the floor. Let your shoulders drop a little. Notice your breathing, without trying to change it.' },
       { title: 'Cyclic sighing', breathe: 8, say: 'Now let’s breathe together. Breathe in through your nose, then take one more short sip of air on top. Then let it all out slowly through your mouth. Follow my circle.' },
       { title: 'Soften', secs: 30, say: 'Let your breathing go back to normal. Unclench your jaw. Relax your hands. Notice anything that feels tight, and let it soften just a little.' },
       { title: 'Be kind to yourself', secs: 40, say: 'Put a hand on your chest if you like, and say to yourself: This is a hard moment. Hard moments are part of every parent’s life. May I be kind to myself right now.' },
       { title: 'Choose one thing', secs: 25, say: 'Before you go back, pick one small intention. Maybe: I’ll take one breath before I respond. That’s it. That’s enough.' },
-      { title: 'All done', secs: 18, say: 'Well done. You can come back to this anytime, even for one minute. Doing it daily is where the benefits add up.' }
+      { title: 'All done', secs: 12, say: 'Well done. You can come back to this anytime, even for one minute. Doing it daily is where the benefits add up.' }
     ]
   }
 ];
@@ -1386,15 +1386,15 @@ function sayText(step) {
 }
 
 /* PAAL's voice: real recordings made with Kokoro-82M, an open-source (Apache-2.0)
-   text-to-speech model, using its soft, low "Nicole" voice at a slow pace.
-   Files: audio/<activity-id>/1.m4a, 2.m4a, … (one per step) plus short
-   breathing cues (cue-in, cue-more, cue-out). If you change a step's text,
-   re-record it (see README). */
+   text-to-speech model, using its most natural voice ("Heart"), recorded one
+   step at a time and played 10% slower and deeper for a calm tone.
+   Files: audio/<activity-id>/1.m4a, 2.m4a, … (one per step) plus the breathing
+   guide cue-breath.m4a. If you change a step's text, re-record it (see README). */
 
 let clip = null;    // the step recording that is playing
 let cueClip = null; // a breathing cue that is playing
 
-const AUDIO_VERSION = 2; // bump after re-recording so phones don't play a cached old voice
+const AUDIO_VERSION = 3; // bump after re-recording so phones don't play a cached old voice
 const audioPath = (activity, name) => `audio/${activity.id}/${name}.m4a?v=${AUDIO_VERSION}`;
 
 function stopVoice() {
@@ -1422,12 +1422,13 @@ function playStep(activity, index) {
   clip = audio;
 }
 
-// Soft breathing cues; skipped while PAAL is still talking
+// The spoken breathing guide; skipped while PAAL is still talking. Returns true if it played.
 function playCue(activity, name) {
-  if (!state.voice || (clip && !clip.ended)) return;
+  if (!state.voice || (clip && !clip.ended)) return false;
   cueClip = new Audio(audioPath(activity, 'cue-' + name));
-  cueClip.volume = .6; // softer than the narration
+  cueClip.volume = .85;
   cueClip.play().catch(() => {});
+  return true;
 }
 
 const clock = secs => `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
@@ -1455,6 +1456,7 @@ function goToStep(index) {
   if (index >= steps.length) { finishActivity(); return; }
   player.step = index;
   player.left = stepLength(steps[index]);
+  player.cues = 0;
   drawPlayer();
   playStep(player.activity, index);
 }
@@ -1510,9 +1512,9 @@ function tick() {
   $('#player-time').textContent = clock(player.left);
   if (step.breathe) {
     $('#breath-cue').textContent = breathCue(step, player.left);
+    // Guide the first 3 breaths out loud, then let the parent breathe in quiet
     const second = (stepLength(step) - player.left) % BREATH_CYCLE;
-    const cue = { 0: 'in', 2: 'more', 3: 'out' }[second];
-    if (cue) playCue(player.activity, cue);
+    if (second === 0 && player.cues < 3 && playCue(player.activity, 'breath')) player.cues += 1;
   }
 }
 
