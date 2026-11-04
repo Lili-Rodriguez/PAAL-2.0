@@ -308,20 +308,127 @@ function paal(classes = '', wave = false) {
   </svg>`;
 }
 
-// The kids: short, round buddies in the same hand-drawn style as PAAL,
-// each in their own color. `index` staggers the bounce so they don't move in sync.
-function kid(tone, classes = '', index = 0) {
-  return `<svg class="kid tone-${tone} ${classes}" viewBox="240 198 132 116" aria-hidden="true">
-    <path class="char-line" d="M282 290L276 308L262 308M330 290L338 308L352 308"/>
+// Kids grow with their age: a short round baby, up to a taller teen.
+function ageStage(age) {
+  const n = Number(age);
+  return n <= 1 ? 'baby' : n <= 4 ? 'toddler' : n <= 9 ? 'kid' : 'teen';
+}
+
+// w = width, h = height, eye = [eye width, eye height, pupil size]
+const STAGES = {
+  baby:    { w: .74, h: 58,  eye: [7, 8.5, 3.6] },
+  toddler: { w: .9,  h: 82,  eye: [8.5, 11, 4.4] },
+  kid:     { w: 1,   h: 104, eye: [9, 11.5, 4.5] },
+  teen:    { w: .94, h: 128, eye: [8.5, 11, 4.3] }
+};
+
+// The kids: round buddies in the same hand-drawn style as PAAL, each in their
+// own color, shaped by age. Extras: baby = pacifier and curl, toddler = hair
+// tuft, kid = cap, teen = headphones. `index` staggers the bounce.
+function kid(tone, age, classes = '', index = 0) {
+  const stage = ageStage(age);
+  const { w, h, eye: [rx, ry, r] } = STAGES[stage];
+  const cx = 305, base = 298;
+  const X = dx => (cx + dx * w).toFixed(1);
+  const Y = k => (base - k * h).toFixed(1);
+  const top = base - 1.04 * h;          // highest point of the head
+  const eyeY = top + ry * 2.9;
+  const gap = Math.max(w, .8);
+  const mouthY = eyeY + ry + 8;
+  const armY = base - .38 * h;
+
+  const body = `M${X(-45)} ${base}C${X(-51)} ${Y(.4)} ${X(-43)} ${Y(.84)} ${X(-15)} ${Y(.96)}`
+    + `C${X(7)} ${Y(1.04)} ${X(31)} ${Y(.97)} ${X(41)} ${Y(.73)}C${X(51)} ${Y(.48)} ${X(49)} ${Y(.2)} ${X(47)} ${base}Z`;
+  const legs = stage === 'baby'
+    ? `M${X(-22)} 296L${X(-26)} 304L${X(-36)} 304M${X(24)} 296L${X(30)} 304L${X(40)} 304`
+    : `M${X(-23)} 290L${X(-29)} 308L${X(-43)} 308M${X(25)} 290L${X(33)} 308L${X(47)} 308`;
+  const lx = cx - 49 * w, rx2 = cx + 49 * w;
+  const arms = stage === 'teen'
+    ? `M${lx} ${armY}Q${lx - 9} ${armY + 8} ${lx - 8} ${armY + 22}M${rx2} ${armY}Q${rx2 + 9} ${armY + 8} ${rx2 + 8} ${armY + 22}`
+    : `M${lx} ${armY}Q${lx - 10} ${armY - 8} ${lx - 13} ${armY - 20}M${rx2} ${armY}Q${rx2 + 10} ${armY - 8} ${rx2 + 13} ${armY - 20}`;
+  const mouth = stage === 'baby'
+    ? `<ellipse cx="${cx + 4}" cy="${mouthY + 1}" rx="7" ry="4" fill="#9ed9e8" class="char-fill-line"/><circle cx="${cx + 4}" cy="${mouthY + 1}" r="2" fill="#fff"/>`
+    : `<path class="char-line" d="M${cx - 3} ${mouthY}Q${cx + 4} ${mouthY + 8} ${cx + 11} ${mouthY}"/>`;
+
+  const extras = {
+    baby: `<path class="char-line" d="M${cx - 2} ${top + 1}q-6 -10 2 -12q6 0 3 6"/>`,
+    toddler: `<path class="char-line" d="M${cx - 6} ${top + 3}l-3 -8M${cx} ${top + 1}l0 -9M${cx + 6} ${top + 2}l3 -7"/>`,
+    kid: `<path class="kid-gear char-fill-line" d="M${cx - 40} ${top + 21}Q${cx - 2} ${top - 34} ${cx + 34} ${top + 20}Q${cx - 3} ${top + 12} ${cx - 40} ${top + 21}Z"/>
+      <path class="kid-gear char-fill-line" d="M${cx + 30} ${top + 18}Q${cx + 46} ${top + 13} ${cx + 55} ${top + 22}Q${cx + 42} ${top + 25} ${cx + 30} ${top + 22}Z"/>`,
+    teen: `<path class="char-line headphone-band" d="M${cx - 44 * w} ${top + 40}Q${cx - 2} ${top - 70} ${cx + 42 * w} ${top + 40}"/>
+      <rect class="kid-gear char-fill-line" x="${cx - 50 * w}" y="${top + 32}" width="11" height="19" rx="5"/>
+      <rect class="kid-gear char-fill-line" x="${cx + 37 * w}" y="${top + 32}" width="11" height="19" rx="5"/>`
+  };
+
+  return `<svg class="kid kid-${stage} tone-${tone} ${classes}" viewBox="236 146 140 168" aria-hidden="true">
+    <path class="char-line" d="${legs}"/>
     <g class="kid-bounce" style="animation-delay: ${-index * 0.7}s">
-      <path class="kid-body" d="M260 298C254 262 262 222 290 211C312 203 336 210 346 232C356 254 354 280 352 298Z"/>
-      ${eyes([[296, 236, 9, 11.5], [318, 235, 9, 11.5]], 4.5)}
-      <ellipse class="char-cheek" cx="284" cy="257" rx="6" ry="3.5"/>
-      <ellipse class="char-cheek" cx="331" cy="256" rx="6" ry="3.5"/>
-      <path class="char-line" d="M300 254Q308 263 316 254"/>
-      <path class="char-line" d="M259 268Q249 260 246 248M353 266Q363 258 365 246"/>
+      <path class="kid-body" d="${body}"/>
+      ${eyes([[cx - 10 * gap, eyeY, rx, ry], [cx + 12 * gap, eyeY - 1, rx, ry]], r)}
+      <ellipse class="char-cheek" cx="${cx - 20 * w}" cy="${mouthY + 2}" rx="5.5" ry="3.3"/>
+      <ellipse class="char-cheek" cx="${cx + 27 * w}" cy="${mouthY + 1}" rx="5.5" ry="3.3"/>
+      ${mouth}
+      <path class="char-line" d="${arms}"/>
+      ${extras[stage]}
     </g>
   </svg>`;
+}
+
+// Little illustrations for each lesson, drawn in the lesson's colors.
+const star = (x, y, s, delay) => `<path class="art-star art-twinkle" style="animation-delay:${delay}s"
+  d="M${x} ${y - s}Q${x} ${y} ${x + s} ${y}Q${x} ${y} ${x} ${y + s}Q${x} ${y} ${x - s} ${y}Q${x} ${y} ${x} ${y - s}Z"/>`;
+const heart = (x, y, s, cls = '') => `<path class="${cls}" d="M${x} ${y + 9 * s}C${x - 9 * s} ${y + 3 * s} ${x - 10 * s} ${y - 5 * s} ${x - 4.5 * s} ${y - 6.5 * s}`
+  + `C${x - 2 * s} ${y - 7 * s} ${x - .5 * s} ${y - 5.5 * s} ${x} ${y - 4 * s}C${x + .5 * s} ${y - 5.5 * s} ${x + 2 * s} ${y - 7 * s} ${x + 4.5 * s} ${y - 6.5 * s}`
+  + `C${x + 10 * s} ${y - 5 * s} ${x + 9 * s} ${y + 3 * s} ${x} ${y + 9 * s}Z"/>`;
+const peep = (x, y) => `<ellipse cx="${x}" cy="${y}" rx="4" ry="5" fill="#fff" class="art-plain"/><circle cx="${x + 1}" cy="${y + 1.5}" r="2" fill="#20251f" class="art-plain"/>`;
+
+const LESSON_ART = {
+  'bedtime-routine': `
+    <path d="M80 20A27 27 0 1 0 106 60A22 22 0 0 1 80 20Z" fill="#f8e7a8"/>
+    <path class="art-line" d="M60 44q4 3 8 0M62 56q4 3 8 0"/><circle cx="57" cy="51" r="3" class="art-cheek"/>
+    ${star(30, 30, 7, 0)}${star(130, 22, 6, .8)}${star(138, 66, 5, 1.5)}${star(38, 74, 4, 2.1)}
+    <path class="art-line art-float" d="M112 42h8l-8 8h8M124 30h6l-6 6h6"/>`,
+  'screen-plan': `
+    <rect x="30" y="16" width="60" height="70" rx="10" fill="#fff"/>
+    <rect x="37" y="24" width="46" height="48" rx="4" fill="var(--kid)"/>
+    <path d="M54 39L54 57L69 48Z" fill="#fff"/><circle cx="60" cy="79" r="2" fill="#20251f" class="art-plain"/>
+    <rect x="114" y="28" width="10" height="7" rx="2" fill="#fff"/>
+    <circle cx="119" cy="57" r="22" fill="#fff"/>
+    <path d="M119 37A20 20 0 0 1 137 66L119 57Z" fill="var(--tone)" class="art-plain" opacity=".55"/>
+    <path class="art-line art-spin" d="M119 57L119 43"/><path class="art-line" d="M119 57L127 61"/>
+    <circle cx="119" cy="57" r="22" fill="none"/>`,
+  'calm-tantrums': `
+    <path d="M24 60C12 60 12 42 25 42C25 29 42 25 48 34C54 23 73 28 70 43C81 43 81 60 70 60Z" fill="#e6e0eb"/>
+    <path d="M47 60L37 76H45L40 90L56 70H48L54 60Z" fill="#f3c94f"/>
+    <path class="art-line" d="M84 54H104M98 48L104 54L98 60"/>
+    ${heart(130, 52, 2.2, 'art-heart art-pulse')}
+    <path class="art-line art-twinkle" d="M108 30l4 5M152 30l-4 5M130 18v7"/>`,
+  'responsive-connection': `
+    <path class="art-line" d="M12 90H148"/>
+    <path d="M22 90C20 64 28 38 48 32C63 28 72 44 67 62C64 74 64 84 66 90Z" fill="#cfb7ef"/>
+    ${peep(52, 46)}${peep(61, 48)}<path class="art-line" d="M51 58q5 4 10 0"/>
+    <path d="M106 90C102 74 108 61 123 59C138 57 146 70 142 90Z" fill="var(--kid)"/>
+    ${peep(119, 72)}${peep(129, 72)}<path class="art-line" d="M119 82q5 4 10 0"/>
+    <path class="art-line art-dash" d="M70 40Q88 14 108 52"/>
+    <circle cx="88" cy="26" r="7" fill="var(--tone)" class="art-float"/>`,
+  'listen-and-name': `
+    <path d="M20 18H84A10 10 0 0 1 94 28V54A10 10 0 0 1 84 64H46L32 76V64H20A10 10 0 0 1 10 54V28A10 10 0 0 1 20 18Z" fill="#fff"/>
+    <circle cx="36" cy="41" r="4" class="art-dot" fill="#20251f"/><circle cx="52" cy="41" r="4" class="art-dot" fill="#20251f" style="animation-delay:.15s"/>
+    <circle cx="68" cy="41" r="4" class="art-dot" fill="#20251f" style="animation-delay:.3s"/>
+    <path d="M104 40H142A8 8 0 0 1 150 48V70A8 8 0 0 1 142 78H136V90L124 78H104A8 8 0 0 1 96 70V48A8 8 0 0 1 104 40Z" fill="var(--kid)"/>
+    ${heart(123, 58, 1.4, 'art-heart-white art-pulse')}`,
+  'play-following': `
+    <path class="art-line" d="M12 86H148"/>
+    <rect x="22" y="58" width="28" height="28" rx="4" fill="var(--kid)"/>
+    <rect x="52" y="58" width="28" height="28" rx="4" fill="#fff"/>
+    <rect x="36" y="28" width="28" height="28" rx="4" fill="var(--tone)" transform="rotate(-8 50 42)"/>
+    <circle cx="116" cy="66" r="19" fill="#fff" class="art-float"/>
+    <path class="art-line" d="M97 66Q116 56 135 66M116 47Q108 66 116 85" style="stroke: var(--tone)"/>
+    ${star(140, 28, 6, .4)}${star(96, 22, 4, 1.2)}`
+};
+
+function lessonArt(lesson, classes = '') {
+  return `<svg class="lesson-svg ${classes}" viewBox="0 0 160 100" aria-hidden="true">${LESSON_ART[lesson.id] || ''}</svg>`;
 }
 
 const ICONS = {
@@ -534,7 +641,7 @@ function homeScreen() {
 
     <section class="children-grid" aria-label="Your children">
       ${p.children.map((c, i) => `<article class="child-card tone-${CHILD_TONES[i % CHILD_TONES.length]}">
-        ${kid(CHILD_TONES[i % CHILD_TONES.length], '', i)}
+        ${kid(CHILD_TONES[i % CHILD_TONES.length], c.age, '', i)}
         <div><h2>${esc(c.name)}</h2><p>${ageLabel(c.age)}</p></div>
       </article>`).join('')}
     </section>
@@ -605,12 +712,14 @@ function learnScreen() {
 
     <div class="lesson-grid">
       ${LESSONS.map(l => `<a class="card lesson-card tone-${l.tone}" href="#learn/${l.id}">
-        <span class="lesson-band"></span>
-        <h2>${l.title}</h2>
-        <p class="muted">${l.teaser}</p>
-        <div class="lesson-foot">
-          <span>${l.time}</span>
-          <span class="status ${isDone(l.id) ? 'done' : ''}">${isDone(l.id) ? '✓ Completed' : 'Start →'}</span>
+        <div class="lesson-art">${lessonArt(l)}${isDone(l.id) ? '<span class="done-badge">✓</span>' : ''}</div>
+        <div class="lesson-copy">
+          <h2>${l.title}</h2>
+          <p class="muted">${l.teaser}</p>
+          <div class="lesson-foot">
+            <span>${l.time}</span>
+            <span class="status ${isDone(l.id) ? 'done' : ''}">${isDone(l.id) ? '✓ Completed' : 'Start →'}</span>
+          </div>
         </div>
       </a>`).join('')}
     </div>`;
@@ -624,6 +733,7 @@ function lessonScreen(lesson) {
 
   return `<article class="lesson tone-${lesson.tone}">
     <a class="back" href="#learn">← All lessons</a>
+    <div class="lesson-hero">${lessonArt(lesson)}</div>
     <p class="eyebrow">${lesson.time} read</p>
     <h1>${lesson.title}</h1>
     ${lesson.sections.map(([heading, content]) => `<section><h2>${heading}</h2>${body(content)}</section>`).join('')}
@@ -794,7 +904,7 @@ function careScreen() {
     <div class="child-tabs" role="group" aria-label="Planning for">
       <span class="child-tabs-label">Planning for</span>
       ${kids.map((c, i) => `<button type="button" class="child-tab tone-${CHILD_TONES[i % CHILD_TONES.length]}" data-child="${esc(c.id)}"
-        aria-pressed="${c.id === child.id}">${kid(CHILD_TONES[i % CHILD_TONES.length], 'kid-xs', i)}<span>${esc(c.name)}</span></button>`).join('')}
+        aria-pressed="${c.id === child.id}">${kid(CHILD_TONES[i % CHILD_TONES.length], c.age, 'kid-xs', i)}<span>${esc(c.name)}</span></button>`).join('')}
     </div>
 
     <div class="care-grid">
