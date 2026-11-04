@@ -16,23 +16,26 @@ To try it on a phone, use your computer's local IP address (same Wi-Fi), e.g.
 
 ## What it does
 
-- **Sign-up** (first visit): your name, your children (name and age), and where you
-  struggle: putting them to sleep, taking them off screens, controlling temper
-  tantrums, or "I just want to learn".
+- **Sign-up** (first visit): your name, a family name, and your children (name,
+  age, and for each child what they need help with: putting them to sleep, taking
+  them off screens, controlling temper tantrums, "I just want to learn", or
+  "Something else" with a short description).
 - **Home**: your children (each with a character that matches their age), Talk to
-  PAAL, a colorful lesson-progress ring, a Schedule care card, and PAAL's
-  research-based tips for the struggles you chose.
+  PAAL, a colorful lesson-progress ring, a Schedule care card, **saved ideas** with
+  a "How did it go?" check-in (Helped / Partly / Didn't fit), and PAAL's
+  research-based tips, each tagged with the kids it applies to.
 - **Learn**: illustrated lessons with a progress bar at the top. Mark a lesson
   complete to fill in the progress.
 - **Care**: ported from Lili's Care page (her commit `fcd8050`): today's care blocks,
-  handoff updates, help requests, caregiver permissions, and a shareable caregiver
-  guide. Local demo only. Nothing is sent to anyone. Her "Family toolkit" section
-  was left out because it was the old Village content.
+  handoff updates, help requests (open → accepted → done, or cancelled), caregiver
+  permissions (care plan, care guide, saved ideas/family toolkit, updates,
+  requests), and a shareable caregiver guide (needs, what already helps, what helps
+  them feel calm, an easy game). Local demo only. Nothing is sent to anyone.
 - **PAAL**: a chat box with the PAAL mascot peeking over it. Answers are
   **scripted**: PAAL matches keywords (sleep, screens, tantrums, learning) to
   prepared, research-based answers. It is not a live AI. Asking for quick ideas
   ("distract", "bored", "waiting"…) returns screen-free activities matched to the
-  child's age (`QUICK_IDEAS`).
+  child's age (`QUICK_IDEAS`), each with a **☆ Save** button.
 - **Guided by PAAL** (below the chat): *Parent reset*, a ~4-minute guided
   meditation in a full-screen player with a timer, an animated breathing circle
   and PAAL's voice: cyclic sighing (Balban et al., 2023), Kristin Neff's
@@ -73,7 +76,7 @@ To try it on a phone, use your computer's local IP address (same Wi-Fi), e.g.
   6. **ROUTER**: page addresses (`#home`, `#learn`, `#learn/<lesson>`, `#care`, `#paal`, `#edit`)
 - `dist/styles.css`: colors and fonts at the top (`:root` and the `.tone-*` colors),
   then one section per page.
-- `dist/index.html`: page title. Bump `?v=17` after editing CSS/JS so phones
+- `dist/index.html`: page title. Bump `?v=18` after editing CSS/JS so phones
   don't show a cached copy.
 - `index.html` (repo root): only redirects to `dist/` for GitHub Pages.
 
@@ -110,6 +113,30 @@ membership together; `accept_help_request` atomically accepts an open request
 for the signed-in caregiver. Do not put a Supabase service-role key in the
 browser or in this repository; a public anon/publishable key is intended for
 client use only when paired with these row-level policies.
+
+### How this app's data maps to the schema
+
+The app's saved data (`localStorage` key `paal-andres`, version 2) already uses the
+schema's table and column names, so it can be synced without a translation layer:
+
+| App data | Supabase table |
+|---|---|
+| `profile` | `profiles` (`display_name`) |
+| `family` | `families` (`name`) |
+| `family.children` | `family_children` (`nickname`, `age`, `goals`, `other_goal`) |
+| `guides[child_id]` | `child_care_guides` (`needs`, `what_helps`, `calming_strategies`, `easy_game`) |
+| `care.caregivers` | caregiver members (`family_memberships` + `profiles.display_name`) |
+| `care.permissions` | `family_member_child_permissions` (one row per caregiver and child, `can_view_*`) |
+| `care.blocks` | `care_blocks` |
+| `care.updates` | `handoff_updates` |
+| `care.requests` | `help_requests` (`open`, `accepted`, `completed`, `cancelled`) |
+| `saved_ideas` | `family_saved_ideas` (`idea_id` = a quick idea, e.g. `freeze-dance`) |
+| `idea_feedback` | `family_idea_feedback` (`Helped`, `Partly`, `Didn't fit`) |
+
+Still app-only (no table yet): completed lessons, chat history and guided-activity
+counts. Local ids (e.g. `caregiver-…`) and the `'owner'` placeholder for "accepted by
+the parent" would become real user ids once sign-in exists. Data saved by the first
+version of this app is upgraded automatically when the page loads.
 
 This is schema groundwork, not a live connection: the static app still uses
 browser `localStorage` and has no Supabase sign-in, data synchronization, or

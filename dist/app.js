@@ -263,38 +263,95 @@ const QUICK_IDEAS = [
   { title: '20 questions', ages: [6, 17], anywhere: true, how: 'Think of an animal or a person; everyone else asks yes/no questions to guess it.' },
   { title: 'Snack chef', ages: [6, 17], how: 'Let them make a snack for everyone: fruit skewers, a sandwich or popcorn.' }
 ];
+// Stable ids for saving ideas (family_saved_ideas.idea_id), e.g. 'freeze-dance'
+QUICK_IDEAS.forEach(idea => { idea.id = idea.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); });
 
 
 /* ---------- 2. STATE ---------- */
 
 // A different key from Lili's version ('paal-prototype'), so the two never clash.
 const STORAGE_KEY = 'paal-andres';
+const DATA_VERSION = 2;
 
-// profile: { parentName, children: [{ id, name, age, needs?, calm?, game? }], struggles: ['sleep', ...] }
-// completed: lesson ids · chat: [{ from: 'me', text } | { from: 'paal', html }]
-// care: Lili's Care data – caregivers, care blocks, handoff updates, help requests
-// activeChildId: the child picked on the Care page
-// activityRuns: { activityId: times finished } · voice: PAAL reads guided activities aloud
+// Saved data uses the same names as the tables and columns in Lili's Supabase schema
+// (supabase/migrations/20261103220000_initial_shared_care.sql), so it can be synced later as-is:
+//   profile           → profiles                        { display_name }
+//   family            → families                        { name, children }
+//   family.children   → family_children                 [{ id, nickname, age, goals: ['sleep', …, 'other'], other_goal }]
+//   guides[child_id]  → child_care_guides               { needs, what_helps, calming_strategies, easy_game }
+//   care.caregivers   → family_memberships (caregivers) [{ id, display_name }]
+//   care.permissions  → family_member_child_permissions [{ caregiver_id, child_id, can_view_plan, can_view_guide, can_view_toolkit, can_view_updates, can_view_requests }]
+//   care.blocks       → care_blocks                     [{ id, child_id, care_date, starts_at, title, details, assigned_to, created_at }]
+//   care.updates      → handoff_updates                 [{ id, child_id, kind, body, created_at }]
+//   care.requests     → help_requests                   [{ id, child_id, body, needed_by, assigned_to, status, accepted_by, accepted_at, created_at }]
+//   saved_ideas       → family_saved_ideas              [{ id, child_id, idea_id, created_at }]
+//   idea_feedback     → family_idea_feedback            [{ id, child_id, idea_id, result, note, created_at }]
+// App-only (no table yet): completed lessons, chat, activeChildId, activityRuns, voice.
+
+// What a caregiver may see for a child (the can_view_* columns)
+const CARE_SCOPES = [
+  ['plan', 'Today’s care plan'],
+  ['guide', 'Child care guide'],
+  ['toolkit', 'Saved ideas (family toolkit)'],
+  ['updates', 'Handoff updates'],
+  ['requests', 'Help requests']
+];
+
+function permissionRow(caregiver_id, child_id, scopes) {
+  return { caregiver_id, child_id, ...Object.fromEntries(CARE_SCOPES.map(([s]) => [`can_view_${s}`, scopes.includes(s)])) };
+}
+
 function emptyState() {
   return {
+    version: DATA_VERSION,
     profile: null,
+    family: null,
+    guides: {},
+    care: { caregivers: [], permissions: [], blocks: [], updates: [], requests: [] },
+    saved_ideas: [],
+    idea_feedback: [],
     completed: [],
     chat: [],
-    care: { caregivers: [], blocks: [], updates: [], requests: [] },
     activeChildId: null,
     activityRuns: {},
     voice: true
   };
 }
 
+// Upgrade data saved by version 1 of this app, which used different names
+function migrate(saved) {
+  if (saved.version >= DATA_VERSION) return saved;
+  const next = { ...emptyState(), ...saved, version: DATA_VERSION, profile: null };
+  const old = saved.profile;
+  if (old && Array.isArray(old.children)) {
+    next.profile = { display_name: old.parentName || '' };
+    next.family = {
+      name: old.parentName ? `${old.parentName}’s family` : 'My family',
+      children: old.children.map(c => ({ id: c.id, nickname: c.name || '', age: Number(c.age) || 0, goals: [...(old.struggles || [])], other_goal: '' }))
+    };
+    next.guides = Object.fromEntries(old.children.map(c =>
+      [c.id, { needs: c.needs || '', what_helps: '', calming_strategies: c.calm || '', easy_game: c.game || '' }]));
+  }
+  const care = saved.care || {};
+  next.care = {
+    caregivers: (care.caregivers || []).map(p => ({ id: p.id, display_name: p.name || '' })),
+    permissions: (care.caregivers || []).flatMap(p => (p.childIds || []).map(childId => permissionRow(p.id, childId, p.permissions || []))),
+    blocks: (care.blocks || []).map(b => ({ id: b.id, child_id: b.childId, care_date: b.date, starts_at: b.time, title: b.title,
+      details: b.details || '', assigned_to: b.caregiverId || '', created_at: b.createdAt })),
+    updates: (care.updates || []).map(u => ({ id: u.id, child_id: u.childId, kind: u.kind, body: u.text, created_at: u.createdAt })),
+    requests: (care.requests || []).map(r => ({ id: r.id, child_id: r.childId, body: r.text, needed_by: r.time || '',
+      assigned_to: r.caregiverId || '', status: r.status, accepted_by: r.status === 'accepted' ? (r.caregiverId || 'owner') : '',
+      accepted_at: r.acceptedAt || '', created_at: r.createdAt }))
+  };
+  return next;
+}
+
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (!saved || typeof saved !== 'object') return emptyState();
-    const loaded = { ...emptyState(), ...saved };
-    // Older saves (before Care existed) won't have every list
-    loaded.care = { ...emptyState().care, ...loaded.care };
-    return loaded;
+    const loaded = migrate(saved);
+    return { ...emptyState(), ...loaded, care: { ...emptyState().care, ...loaded.care } };
   } catch {
     return emptyState();
   }
@@ -305,6 +362,7 @@ function save() {
 }
 
 let state = loadState();
+save(); // stores upgraded (migrated) data right away
 
 
 /* ---------- 3. HELPERS ---------- */
@@ -323,8 +381,12 @@ function listNames(names) {
   return names.length < 2 ? names.join('') : names.slice(0, -1).join(', ') + ' and ' + names.at(-1);
 }
 
+function familyKids() {
+  return state.family.children;
+}
+
 function childNames() {
-  return listNames(state.profile.children.map(c => c.name));
+  return listNames(familyKids().map(c => c.nickname));
 }
 
 function ageLabel(age) {
@@ -540,34 +602,45 @@ function shell(active, content) {
 let draft = null; // the form while it's being filled in
 
 function newChild() {
-  return { id: 'c' + Math.random().toString(36).slice(2, 9), name: '', age: '' };
+  return { id: 'c' + Math.random().toString(36).slice(2, 9), nickname: '', age: '', goals: [], other_goal: '' };
 }
 
 function startDraft() {
-  draft = state.profile
-    ? structuredClone(state.profile)
-    : { parentName: '', children: [newChild()], struggles: [] };
+  draft = state.family
+    ? { display_name: state.profile.display_name, family_name: state.family.name, children: structuredClone(state.family.children) }
+    : { display_name: '', family_name: '', children: [newChild()] };
 }
 
+// Support areas a parent can pick for each child: the four STRUGGLES plus "Something else"
+const GOAL_OPTIONS = [...STRUGGLES.map(s => [s.id, s.label, s.tone]), ['other', 'Something else', 'pink']];
+
 function signupScreen() {
-  const editing = Boolean(state.profile);
+  const editing = Boolean(state.family);
 
   const ageOptions = selected => ['<option value="">Age</option>',
     ...Array.from({ length: 18 }, (_, n) =>
       `<option value="${n}" ${String(n) === String(selected) ? 'selected' : ''}>${n === 0 ? 'Under 1' : n}</option>`)
   ].join('');
 
-  const childRow = (child, i) => `<div class="child-row">
-    <label class="field"><span>Child ${i + 1} name</span>
-      <input id="name-${child.id}" value="${esc(child.name)}" placeholder="e.g. Mia" autocomplete="off"></label>
-    <label class="field"><span>Age</span><select id="age-${child.id}">${ageOptions(child.age)}</select></label>
-    ${draft.children.length > 1 ? `<button type="button" class="remove-child" data-remove="${child.id}" aria-label="Remove child ${i + 1}">×</button>` : ''}
+  const childBlock = (child, i) => `<div class="child-block">
+    <div class="child-row">
+      <label class="field"><span>Child ${i + 1} name</span>
+        <input id="name-${child.id}" value="${esc(child.nickname)}" placeholder="e.g. Mia" autocomplete="off"></label>
+      <label class="field"><span>Age</span><select id="age-${child.id}">${ageOptions(child.age)}</select></label>
+      ${draft.children.length > 1 ? `<button type="button" class="remove-child" data-remove="${child.id}" aria-label="Remove child ${i + 1}">×</button>` : ''}
+    </div>
+    <fieldset class="goal-set">
+      <legend>What would you like help with for this child?</legend>
+      <div class="goal-grid">
+        ${GOAL_OPTIONS.map(([id, label, tone]) => `<label class="goal-option tone-${tone}">
+          <input type="checkbox" name="goal-${child.id}" value="${id}" ${child.goals.includes(id) ? 'checked' : ''}
+            ${id === 'other' ? `data-other="${child.id}"` : ''}><span>${label}</span></label>`).join('')}
+      </div>
+      <label class="field other-goal" id="other-wrap-${child.id}" ${child.goals.includes('other') ? '' : 'hidden'}>
+        <span>What else would you like help with?</span>
+        <input id="other-${child.id}" maxlength="120" value="${esc(child.other_goal)}" placeholder="e.g. Potty training"></label>
+    </fieldset>
   </div>`;
-
-  const struggleOption = s => `<label class="struggle-option tone-${s.tone}">
-    <input type="checkbox" name="struggle" value="${s.id}" ${draft.struggles.includes(s.id) ? 'checked' : ''}>
-    <span><strong>${s.label}</strong><small>Based on: ${s.method}</small></span>
-  </label>`;
 
   return `<div class="signup">
     <div class="signup-intro">
@@ -580,19 +653,18 @@ function signupScreen() {
     <form id="signup-form" class="card signup-form" novalidate>
       <div id="form-errors" class="form-errors" tabindex="-1" hidden></div>
 
-      <label class="field"><span>Your name</span>
-        <input id="parent-name" value="${esc(draft.parentName)}" placeholder="e.g. Andres" autocomplete="given-name"></label>
+      <div class="form-row">
+        <label class="field"><span>Your name</span>
+          <input id="parent-name" value="${esc(draft.display_name)}" placeholder="e.g. Andres" autocomplete="given-name"></label>
+        <label class="field"><span>Family name</span>
+          <input id="family-name" value="${esc(draft.family_name)}" maxlength="80" placeholder="e.g. The Rodriguez family"></label>
+      </div>
 
       <fieldset>
         <legend>Your children</legend>
-        ${draft.children.map(childRow).join('')}
+        <p class="hint">For each child, choose as many areas as you like.</p>
+        ${draft.children.map(childBlock).join('')}
         <button type="button" id="add-child" class="link-btn">+ Add another child</button>
-      </fieldset>
-
-      <fieldset>
-        <legend>Where do you struggle most?</legend>
-        <p class="hint">Choose as many as you like.</p>
-        <div class="struggle-grid">${STRUGGLES.map(struggleOption).join('')}</div>
       </fieldset>
 
       <div class="form-actions">
@@ -604,23 +676,31 @@ function signupScreen() {
 }
 
 function readDraft() {
-  draft.parentName = $('#parent-name').value.trim();
-  draft.children = draft.children.map(c => ({
-    ...c,
-    name: $(`#name-${c.id}`).value.trim(),
-    age: $(`#age-${c.id}`).value
-  }));
-  draft.struggles = [...document.querySelectorAll('input[name=struggle]:checked')].map(input => input.value);
+  draft.display_name = $('#parent-name').value.trim();
+  draft.family_name = $('#family-name').value.trim();
+  draft.children = draft.children.map(c => {
+    const age = $(`#age-${c.id}`).value;
+    return {
+      ...c,
+      nickname: $(`#name-${c.id}`).value.trim(),
+      age: age === '' ? '' : Number(age),
+      goals: [...document.querySelectorAll(`input[name="goal-${c.id}"]:checked`)].map(input => input.value),
+      other_goal: $(`#other-${c.id}`).value.trim()
+    };
+  });
 }
 
 function signupErrors(form) {
   const errors = [];
-  if (!form.parentName) errors.push('Add your name.');
+  if (!form.display_name) errors.push('Add your name.');
+  if (!form.family_name) errors.push('Add a family name.');
   form.children.forEach((c, i) => {
-    if (!c.name) errors.push(`Add a name for child ${i + 1}.`);
-    if (c.age === '') errors.push(`Choose an age for ${c.name || 'child ' + (i + 1)}.`);
+    const label = c.nickname || `child ${i + 1}`;
+    if (!c.nickname) errors.push(`Add a name for child ${i + 1}.`);
+    if (c.age === '') errors.push(`Choose an age for ${label}.`);
+    if (!c.goals.length) errors.push(`Choose at least one thing PAAL can help with for ${label}.`);
+    if (c.goals.includes('other') && !c.other_goal) errors.push(`Describe the “something else” for ${label}.`);
   });
-  if (!form.struggles.length) errors.push('Choose at least one thing PAAL can help with.');
   return errors;
 }
 
@@ -640,6 +720,14 @@ function bindSignup() {
     };
   });
 
+  // "Something else" shows its text box without redrawing the form
+  document.querySelectorAll('[data-other]').forEach(box => {
+    box.onchange = () => {
+      $(`#other-wrap-${box.dataset.other}`).hidden = !box.checked;
+      if (box.checked) $(`#other-${box.dataset.other}`).focus();
+    };
+  });
+
   const cancel = $('#cancel-edit');
   if (cancel) cancel.onclick = () => { location.hash = '#home'; };
 
@@ -654,12 +742,16 @@ function bindSignup() {
       box.focus();
       return;
     }
-    const isNew = !state.profile;
-    state.profile = draft;
+    const isNew = !state.family;
+    state.profile = { display_name: draft.display_name };
+    state.family = {
+      name: draft.family_name,
+      children: draft.children.map(c => ({ ...c, other_goal: c.goals.includes('other') ? c.other_goal : '' }))
+    };
     pruneCare();
     save();
     location.hash = '#home';
-    toast(isNew ? `Welcome to PAAL, ${state.profile.parentName}!` : 'Family details saved');
+    toast(isNew ? `Welcome to PAAL, ${state.profile.display_name}!` : 'Family details saved');
   };
 }
 
@@ -690,28 +782,90 @@ function progressMessage(done, total) {
 // Today's care blocks for every child, earliest first
 function todaysBlocks() {
   return state.care.blocks
-    .filter(b => b.date === todayKey())
-    .sort((a, b) => a.time.localeCompare(b.time));
+    .filter(b => b.care_date === todayKey())
+    .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+}
+
+function childName(id) {
+  return familyKids().find(c => c.id === id)?.nickname || '';
+}
+
+// One card per saved idea, with the kids it's saved for and a "How did it go?" check-in
+const FEEDBACK_RESULTS = ['Helped', 'Partly', "Didn't fit"]; // exact values allowed by the database
+
+function savedIdeasSection() {
+  const ideaIds = [...new Set(state.saved_ideas.map(s => s.idea_id))];
+  if (!ideaIds.length) return '';
+  return `<section>
+    <h2 class="section-title">Saved ideas</h2>
+    <div class="saved-grid">
+      ${ideaIds.map(ideaId => {
+        const idea = QUICK_IDEAS.find(i => i.id === ideaId);
+        if (!idea) return '';
+        const names = state.saved_ideas.filter(s => s.idea_id === ideaId).map(s => childName(s.child_id)).filter(Boolean);
+        const last = state.idea_feedback.filter(f => f.idea_id === ideaId).at(-1);
+        return `<article class="card saved-card">
+          <div class="saved-head"><h3>${esc(idea.title)}</h3><span class="for-kids">for ${esc(listNames(names))}</span></div>
+          <p>${esc(idea.how)}</p>
+          <div class="feedback" role="group" aria-label="How did ${esc(idea.title)} go?">
+            <span>How did it go?</span>
+            ${FEEDBACK_RESULTS.map(result => `<button type="button" class="chip" data-feedback="${ideaId}" data-result="${result}"
+              aria-pressed="${last?.result === result}">${result}</button>`).join('')}
+          </div>
+          <div class="saved-foot">
+            <span class="muted">${last ? `Last check-in: ${esc(last.result)} · ${new Date(last.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : ''}</span>
+            <button type="button" class="link-btn danger" data-unsave="${ideaId}">Remove</button>
+          </div>
+        </article>`;
+      }).join('')}
+    </div>
+  </section>`;
+}
+
+function bindHome() {
+  document.querySelectorAll('[data-feedback]').forEach(button => {
+    button.onclick = () => {
+      const ideaId = button.dataset.feedback;
+      const now = new Date().toISOString();
+      // One feedback row per child the idea is saved for
+      state.saved_ideas.filter(s => s.idea_id === ideaId).forEach(s => state.idea_feedback.push(
+        { id: uid('feedback'), child_id: s.child_id, idea_id: ideaId, result: button.dataset.result, note: '', created_at: now }));
+      save();
+      render();
+      toast('Thanks! Noted how it went.');
+    };
+  });
+  document.querySelectorAll('[data-unsave]').forEach(button => {
+    button.onclick = () => {
+      state.saved_ideas = state.saved_ideas.filter(s => s.idea_id !== button.dataset.unsave);
+      save();
+      render();
+      toast('Idea removed');
+    };
+  });
 }
 
 function homeScreen() {
-  const p = state.profile;
+  const kids = familyKids();
   const next = LESSONS.find(l => !isDone(l.id));
-  const tips = STRUGGLES.filter(s => p.struggles.includes(s.id));
+  // Each tip once, tagged with the kids who need it
+  const tips = STRUGGLES
+    .map(s => ({ s, names: kids.filter(c => c.goals.includes(s.id)).map(c => c.nickname) }))
+    .filter(t => t.names.length);
+  const otherGoals = kids.filter(c => c.goals.includes('other') && c.other_goal);
   const blocks = todaysBlocks();
-  const nextBlock = blocks.find(b => b.time >= new Date().toTimeString().slice(0, 5)) || blocks[0];
-  const childName = id => p.children.find(c => c.id === id)?.name || '';
+  const nextBlock = blocks.find(b => b.starts_at >= new Date().toTimeString().slice(0, 5)) || blocks[0];
 
   return `
     <header class="page-head">
-      <div><p class="eyebrow">Home</p><h1>Hi, ${esc(p.parentName)}.</h1></div>
+      <div><p class="eyebrow">${esc(state.family.name)}</p><h1>Hi, ${esc(state.profile.display_name)}.</h1></div>
       <a class="btn ghost" href="#edit">Edit family</a>
     </header>
 
     <section class="children-grid" aria-label="Your children">
-      ${p.children.map((c, i) => `<article class="child-card tone-${CHILD_TONES[i % CHILD_TONES.length]}">
+      ${kids.map((c, i) => `<article class="child-card tone-${CHILD_TONES[i % CHILD_TONES.length]}">
         ${kid(CHILD_TONES[i % CHILD_TONES.length], c.age, '', i)}
-        <div><h2>${esc(c.name)}</h2><p>${ageLabel(c.age)}</p></div>
+        <div><h2>${esc(c.nickname)}</h2><p>${ageLabel(c.age)}</p></div>
       </article>`).join('')}
     </section>
 
@@ -742,22 +896,30 @@ function homeScreen() {
         <span class="care-icon" aria-hidden="true">${ICONS.care}</span>
         <h2>Schedule care</h2>
         <p class="muted">${blocks.length
-          ? `${blocks.length} care block${blocks.length > 1 ? 's' : ''} today. Next: <strong>${formatTime(nextBlock.time)} · ${esc(nextBlock.title)}</strong>
-             for ${esc(childName(nextBlock.childId))}${nextBlock.caregiverId ? ` with ${esc(caregiverName(nextBlock.caregiverId))}` : ''}.`
+          ? `${blocks.length} care block${blocks.length > 1 ? 's' : ''} today. Next: <strong>${formatTime(nextBlock.starts_at)} · ${esc(nextBlock.title)}</strong>
+             for ${esc(childName(nextBlock.child_id))}${nextBlock.assigned_to ? ` with ${esc(caregiverName(nextBlock.assigned_to))}` : ''}.`
           : 'Nothing scheduled for today yet. Plan pickups, naps and handoffs with the people who help you.'}</p>
         <a class="btn primary" href="#care">Schedule care</a>
       </section>
     </div>
 
+    ${savedIdeasSection()}
+
     <section>
       <h2 class="section-title">PAAL’s tips for you</h2>
       <div class="tips-grid">
-        ${tips.map(s => `<article class="card tip-card tone-${s.tone}">
-          <span class="tag">${s.label}</span>
+        ${tips.map(({ s, names }) => `<article class="card tip-card tone-${s.tone}">
+          <span class="tag">${s.label}</span> <span class="for-kids">for ${esc(listNames(names))}</span>
           <h3>${s.title}</h3>
           <p class="method">${s.method}</p>
           <p>${s.summary}</p>
           <a href="#learn/${s.lessonId}">Read the lesson →</a>
+        </article>`).join('')}
+        ${otherGoals.map(c => `<article class="card tip-card tone-pink">
+          <span class="tag">Something else</span> <span class="for-kids">for ${esc(c.nickname)}</span>
+          <h3>${esc(c.other_goal)}</h3>
+          <p>PAAL doesn’t have a prepared, research-based answer for this yet. Describe what’s going on in the chat and PAAL will share what it can.</p>
+          <a href="#paal">Ask PAAL →</a>
         </article>`).join('')}
       </div>
     </section>`;
@@ -830,14 +992,8 @@ function bindLesson(lesson) {
    Ported from Lili's Care page (her commit fcd8050) and rewritten in this file's
    style: care blocks, handoff updates, help requests, caregiver permissions and a
    shareable caregiver guide. It is a local demo: nothing is sent to anyone.
-   (Her "Family toolkit" part is left out because it was the Village content.) */
-
-const CARE_SCOPES = [
-  ['plan', 'Today’s care plan'],
-  ['guide', 'Child care guide'],
-  ['updates', 'Handoff updates'],
-  ['requests', 'Help requests']
-];
+   Data follows her Supabase tables (see STATE). The "family toolkit" permission
+   covers saved ideas. */
 
 let editingBlockId = null; // the care block being edited, if any
 
@@ -856,52 +1012,87 @@ function formatTime(hhmm) {
 }
 
 function activeChild() {
-  const kids = state.profile.children;
+  const kids = familyKids();
   return kids.find(c => c.id === state.activeChildId) || kids[0];
 }
 
 function caregiverName(id) {
-  return state.care.caregivers.find(p => p.id === id)?.name || 'no one assigned';
+  return state.care.caregivers.find(p => p.id === id)?.display_name || 'no one assigned';
+}
+
+function canView(caregiverId, childId, scope) {
+  return state.care.permissions.some(r => r.caregiver_id === caregiverId && r.child_id === childId && r[`can_view_${scope}`]);
 }
 
 // Caregivers allowed to see `scope` for this child (optionally only the assigned one)
 function carePeople(scope, childId, assignedId = '') {
-  return state.care.caregivers.filter(p =>
-    p.permissions.includes(scope) && p.childIds.includes(childId) && (!assignedId || p.id === assignedId));
+  return state.care.caregivers.filter(p => canView(p.id, childId, scope) && (!assignedId || p.id === assignedId));
 }
 
 function careAudience(scope, childId, assignedId = '') {
   const people = carePeople(scope, childId, assignedId);
-  return people.length ? people.map(p => esc(p.name)).join(', ') : 'No caregivers selected';
+  return people.length ? people.map(p => esc(p.display_name)).join(', ') : 'No caregivers selected';
 }
 
-// After Edit family: drop care records for children who were removed
+// The form shows one set of permissions per caregiver; the data keeps one row per child
+function caregiverChildIds(caregiverId) {
+  return state.care.permissions.filter(r => r.caregiver_id === caregiverId).map(r => r.child_id);
+}
+
+function caregiverScopes(caregiverId) {
+  return CARE_SCOPES.map(([s]) => s).filter(s => state.care.permissions.some(r => r.caregiver_id === caregiverId && r[`can_view_${s}`]));
+}
+
+function setPermissions(caregiverId, childIds, scopes) {
+  state.care.permissions = [
+    ...state.care.permissions.filter(r => r.caregiver_id !== caregiverId),
+    ...childIds.map(childId => permissionRow(caregiverId, childId, scopes))
+  ];
+}
+
+// After Edit family: drop everything that belonged to children who were removed
 function pruneCare() {
-  const ids = state.profile.children.map(c => c.id);
-  for (const key of ['blocks', 'updates', 'requests']) {
-    state.care[key] = state.care[key].filter(item => ids.includes(item.childId));
-  }
-  state.care.caregivers.forEach(p => { p.childIds = p.childIds.filter(id => ids.includes(id)); });
+  const ids = familyKids().map(c => c.id);
+  const keep = item => ids.includes(item.child_id);
+  for (const key of ['blocks', 'updates', 'requests', 'permissions']) state.care[key] = state.care[key].filter(keep);
+  state.saved_ideas = state.saved_ideas.filter(keep);
+  state.idea_feedback = state.idea_feedback.filter(keep);
+  for (const id of Object.keys(state.guides)) if (!ids.includes(id)) delete state.guides[id];
+}
+
+function guideOf(child) {
+  return state.guides[child.id] || { needs: '', what_helps: '', calming_strategies: '', easy_game: '' };
 }
 
 function caregiverGuide(child) {
-  return `A quick guide for caring for ${child.name} (${ageLabel(child.age).toLowerCase()})
+  const guide = guideOf(child);
+  return `A quick guide for caring for ${child.nickname} (${ageLabel(child.age).toLowerCase()})
 
-What they need: ${child.needs?.trim() || 'Not added yet'}
-What helps them feel calm: ${child.calm?.trim() || 'Not added yet'}
-An easy game to play: ${child.game?.trim() || 'Not added yet'}
+What they need: ${guide.needs.trim() || 'Not added yet'}
+What already helps: ${guide.what_helps.trim() || 'Not added yet'}
+What helps them feel calm: ${guide.calming_strategies.trim() || 'Not added yet'}
+An easy game to play: ${guide.easy_game.trim() || 'Not added yet'}
 
 Shared by their caregiver. Please check with their family about anything that may have changed.`;
 }
 
+// Help request statuses, as in the database: open → accepted → completed, or open → cancelled
+function requestHeading(r) {
+  if (r.status === 'accepted') return r.accepted_by === 'owner' ? '✓ Accepted in this demo' : `✓ Accepted by ${esc(caregiverName(r.accepted_by))}`;
+  if (r.status === 'completed') return '✓ Done';
+  if (r.status === 'cancelled') return 'Cancelled';
+  return 'Help requested';
+}
+
 function careScreen() {
-  const kids = state.profile.children;
+  const kids = familyKids();
   const child = activeChild();
+  const guide = guideOf(child);
   const blocks = state.care.blocks
-    .filter(b => b.childId === child.id && b.date === todayKey())
-    .sort((a, b) => a.time.localeCompare(b.time));
-  const updates = state.care.updates.filter(u => u.childId === child.id).slice().reverse();
-  const requests = state.care.requests.filter(r => r.childId === child.id).slice().reverse();
+    .filter(b => b.child_id === child.id && b.care_date === todayKey())
+    .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+  const updates = state.care.updates.filter(u => u.child_id === child.id).slice().reverse();
+  const requests = state.care.requests.filter(r => r.child_id === child.id).slice().reverse();
   const editing = state.care.blocks.find(b => b.id === editingBlockId);
   const planPeople = carePeople('plan', child.id);
   const requestPeople = carePeople('requests', child.id);
@@ -909,14 +1100,14 @@ function careScreen() {
   const checks = (name, items, selected) => items.map(([value, label]) =>
     `<label class="check"><input type="checkbox" name="${name}" value="${esc(value)}" ${selected.includes(value) ? 'checked' : ''}><span>${esc(label)}</span></label>`
   ).join('');
-  const childItems = kids.map(c => [c.id, c.name]);
+  const childItems = kids.map(c => [c.id, c.nickname]);
 
   const blockList = blocks.length ? blocks.map(b => `<article class="record">
-      <span class="record-time">${formatTime(b.time)}</span>
+      <span class="record-time">${formatTime(b.starts_at)}</span>
       <div class="record-main">
         <h4>${esc(b.title)}</h4>
         ${b.details ? `<p>${esc(b.details)}</p>` : ''}
-        <small>Caregiver: ${esc(caregiverName(b.caregiverId))} · Can see this: ${careAudience('plan', child.id, b.caregiverId)}</small>
+        <small>Caregiver: ${esc(caregiverName(b.assigned_to))} · Can see this: ${careAudience('plan', child.id, b.assigned_to)}</small>
       </div>
       <div class="record-actions">
         <button type="button" class="link-btn" data-edit-block="${esc(b.id)}">Edit</button>
@@ -926,35 +1117,39 @@ function careScreen() {
 
   const updateList = updates.length ? updates.map(u => `<article class="record note">
       <div class="record-main">
-        <h4>${esc(u.kind)} <time>${new Date(u.createdAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</time></h4>
-        <p>${esc(u.text)}</p>
+        <h4>${esc(u.kind)} <time>${new Date(u.created_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</time></h4>
+        <p>${esc(u.body)}</p>
         <small>Can see this: ${careAudience('updates', child.id)}</small>
       </div>
     </article>`).join('') : '<p class="empty">No handoff updates yet. Post a short note for the next caregiver.</p>';
 
-  const requestList = requests.length ? requests.map(r => `<article class="record ${r.status === 'accepted' ? 'accepted' : ''}">
+  const requestList = requests.length ? requests.map(r => `<article class="record request-${r.status}">
       <div class="record-main">
-        <h4>${r.status === 'accepted' ? '✓ Accepted in this demo' : 'Help requested'}${r.time ? ` <time>by ${formatTime(r.time)}</time>` : ''}</h4>
-        <p>${esc(r.text)}</p>
-        <small>Can see this: ${careAudience('requests', child.id, r.caregiverId)}</small>
+        <h4>${requestHeading(r)}${r.needed_by ? ` <time>by ${formatTime(r.needed_by)}</time>` : ''}</h4>
+        <p>${esc(r.body)}</p>
+        <small>Can see this: ${careAudience('requests', child.id, r.assigned_to)}</small>
       </div>
-      ${r.status === 'open' ? `<button type="button" class="btn ghost small" data-accept="${esc(r.id)}">Accept in demo</button>` : ''}
+      <div class="record-actions">
+        ${r.status === 'open' ? `<button type="button" class="btn ghost small" data-request="${esc(r.id)}" data-to="accepted">Accept in demo</button>
+          <button type="button" class="link-btn danger" data-request="${esc(r.id)}" data-to="cancelled">Cancel</button>` : ''}
+        ${r.status === 'accepted' ? `<button type="button" class="btn ghost small" data-request="${esc(r.id)}" data-to="completed">Mark done</button>` : ''}
+      </div>
     </article>`).join('') : '<p class="empty">No help requests yet. Ask for a hand with a specific part of today.</p>';
 
   const caregiverList = state.care.caregivers.length ? state.care.caregivers.map(p => `<article class="caregiver">
       <div class="caregiver-head">
-        <strong>${esc(p.name)}</strong>
+        <strong>${esc(p.display_name)}</strong>
         <button type="button" class="link-btn danger" data-remove-caregiver="${esc(p.id)}">Remove</button>
       </div>
       <div class="caregiver-groups">
-        <fieldset><legend>Children</legend>${checks('child-' + p.id, childItems, p.childIds)}</fieldset>
-        <fieldset><legend>Can see</legend>${checks('permission-' + p.id, CARE_SCOPES, p.permissions)}</fieldset>
+        <fieldset><legend>Children</legend>${checks('child-' + p.id, childItems, caregiverChildIds(p.id))}</fieldset>
+        <fieldset><legend>Can see</legend>${checks('permission-' + p.id, CARE_SCOPES, caregiverScopes(p.id))}</fieldset>
       </div>
     </article>`).join('') + '<button type="button" id="save-permissions" class="btn ghost">Save permissions</button>'
     : '<p class="empty">No caregivers yet. Add a name to preview who could see what. No account is created and no invitation is sent.</p>';
 
   const caregiverSelect = (people, selectedId, emptyLabel) => `<select name="caregiver">
-      ${people.map(p => `<option value="${esc(p.id)}" ${p.id === selectedId ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+      ${people.map(p => `<option value="${esc(p.id)}" ${p.id === selectedId ? 'selected' : ''}>${esc(p.display_name)}</option>`).join('')}
       <option value="" ${!people.some(p => p.id === selectedId) ? 'selected' : ''}>${emptyLabel}</option>
     </select>`;
 
@@ -973,26 +1168,26 @@ function careScreen() {
     <div class="child-tabs" role="group" aria-label="Planning for">
       <span class="child-tabs-label">Planning for</span>
       ${kids.map((c, i) => `<button type="button" class="child-tab tone-${CHILD_TONES[i % CHILD_TONES.length]}" data-child="${esc(c.id)}"
-        aria-pressed="${c.id === child.id}">${kid(CHILD_TONES[i % CHILD_TONES.length], c.age, 'kid-xs', i)}<span>${esc(c.name)}</span></button>`).join('')}
+        aria-pressed="${c.id === child.id}">${kid(CHILD_TONES[i % CHILD_TONES.length], c.age, 'kid-xs', i)}<span>${esc(c.nickname)}</span></button>`).join('')}
     </div>
 
     <div class="care-grid">
       <section class="card care-section" id="schedule">
         <p class="eyebrow">Today’s plan</p>
         <h2>Care blocks</h2>
-        <p class="muted">Who’s doing what, and when, for ${esc(child.name)}.</p>
+        <p class="muted">Who’s doing what, and when, for ${esc(child.nickname)}.</p>
         <div class="records">${blockList}</div>
         <form id="block-form" class="care-form">
           <h3>${editing ? 'Edit care block' : 'Add a care block'}</h3>
           <label class="field"><span>What needs to happen?</span>
             <input name="title" maxlength="100" placeholder="Pickup, snack, quiet time…" value="${esc(editing?.title || '')}"></label>
           <div class="form-row">
-            <label class="field"><span>Time</span><input type="time" name="time" value="${esc(editing?.time || '')}"></label>
-            <label class="field"><span>Caregiver</span>${caregiverSelect(planPeople, editing?.caregiverId, 'Not assigned')}</label>
+            <label class="field"><span>Time</span><input type="time" name="time" value="${esc(editing?.starts_at || '')}"></label>
+            <label class="field"><span>Caregiver</span>${caregiverSelect(planPeople, editing?.assigned_to, 'Not assigned')}</label>
           </div>
           <label class="field"><span>Handoff details (optional)</span>
             <textarea name="details" rows="2" maxlength="400" placeholder="Anything the next caregiver should know?">${esc(editing?.details || '')}</textarea></label>
-          <p class="audience">Can see the plan: ${planPeople.length ? planPeople.map(p => esc(p.name)).join(', ') : 'no caregivers have care-plan access yet'}</p>
+          <p class="audience">Can see the plan: ${planPeople.length ? planPeople.map(p => esc(p.display_name)).join(', ') : 'no caregivers have care-plan access yet'}</p>
           <div class="form-actions">
             ${editing ? '<button type="button" id="cancel-block" class="btn ghost">Cancel</button>' : ''}
             <button type="submit" class="btn primary">${editing ? 'Save changes' : 'Add to today’s plan'}</button>
@@ -1051,15 +1246,17 @@ function careScreen() {
       <section class="card care-section care-guide">
         <p class="eyebrow">Made to share</p>
         <h2>A quick guide for caregivers</h2>
-        <p class="muted">Share what helps ${esc(child.name)} feel supported, wherever they are.</p>
+        <p class="muted">Share what helps ${esc(child.nickname)} feel supported, wherever they are.</p>
         <div class="guide-grid">
           <form id="guide-form" class="care-form">
             <label class="field"><span>What they need</span>
-              <textarea name="needs" rows="2" maxlength="400" placeholder="Allergies, routines, comfort items…">${esc(child.needs || '')}</textarea></label>
+              <textarea name="needs" rows="2" maxlength="400" placeholder="Allergies, routines, comfort items…">${esc(guide.needs)}</textarea></label>
+            <label class="field"><span>What already helps</span>
+              <textarea name="what_helps" rows="2" maxlength="400" placeholder="Approaches that already work for them…">${esc(guide.what_helps)}</textarea></label>
             <label class="field"><span>What helps them feel calm</span>
-              <textarea name="calm" rows="2" maxlength="400" placeholder="A quiet space, a familiar song…">${esc(child.calm || '')}</textarea></label>
+              <textarea name="calming_strategies" rows="2" maxlength="400" placeholder="A quiet space, a familiar song…">${esc(guide.calming_strategies)}</textarea></label>
             <label class="field"><span>An easy game to play</span>
-              <input name="game" maxlength="200" placeholder="I spy, building blocks…" value="${esc(child.game || '')}"></label>
+              <input name="easy_game" maxlength="200" placeholder="I spy, building blocks…" value="${esc(guide.easy_game)}"></label>
             <div class="form-actions"><button type="submit" class="btn ghost">Save guide</button></div>
           </form>
           <div class="guide-preview">
@@ -1103,9 +1300,9 @@ function bindCare() {
     const title = String(form.get('title')).trim(), time = String(form.get('time'));
     if (!title || !time) { toast('Add a care task and a time first.'); return; }
     const existing = state.care.blocks.find(b => b.id === editingBlockId);
-    const block = { title, time, details: String(form.get('details')).trim(), caregiverId: String(form.get('caregiver')) };
+    const block = { title, starts_at: time, details: String(form.get('details')).trim(), assigned_to: String(form.get('caregiver')) };
     if (existing) Object.assign(existing, block);
-    else state.care.blocks.push({ id: uid('block'), childId: child.id, date: todayKey(), createdAt: new Date().toISOString(), ...block });
+    else state.care.blocks.push({ id: uid('block'), child_id: child.id, care_date: todayKey(), created_at: new Date().toISOString(), ...block });
     editingBlockId = null;
     done(existing ? 'Care block updated' : 'Added to today’s plan');
   };
@@ -1127,7 +1324,7 @@ function bindCare() {
     const form = formData('#update-form');
     const text = String(form.get('text')).trim();
     if (!text) { toast('Write a short update first.'); return; }
-    state.care.updates.push({ id: uid('update'), childId: child.id, kind: String(form.get('kind')), text, createdAt: new Date().toISOString() });
+    state.care.updates.push({ id: uid('update'), child_id: child.id, kind: String(form.get('kind')), body: text, created_at: new Date().toISOString() });
     done('Update saved in this browser. No one was notified.');
   };
 
@@ -1136,15 +1333,20 @@ function bindCare() {
     const form = formData('#request-form');
     const text = String(form.get('text')).trim();
     if (!text) { toast('Describe what help would be useful.'); return; }
-    state.care.requests.push({ id: uid('request'), childId: child.id, text, time: String(form.get('time')),
-      caregiverId: String(form.get('caregiver')), status: 'open', createdAt: new Date().toISOString() });
+    state.care.requests.push({ id: uid('request'), child_id: child.id, body: text, needed_by: String(form.get('time')),
+      assigned_to: String(form.get('caregiver')), status: 'open', accepted_by: '', accepted_at: '', created_at: new Date().toISOString() });
     done('Request saved in this browser. No one was notified.');
   };
-  document.querySelectorAll('[data-accept]').forEach(button => {
+  document.querySelectorAll('[data-request]').forEach(button => {
     button.onclick = () => {
-      const request = state.care.requests.find(r => r.id === button.dataset.accept);
-      if (request) { request.status = 'accepted'; request.acceptedAt = new Date().toISOString(); }
-      done('Marked accepted in this demo');
+      const request = state.care.requests.find(r => r.id === button.dataset.request);
+      if (!request) return;
+      request.status = button.dataset.to;
+      if (request.status === 'accepted') {
+        request.accepted_by = request.assigned_to || 'owner'; // 'owner' = the parent using this demo
+        request.accepted_at = new Date().toISOString();
+      }
+      done({ accepted: 'Marked accepted in this demo', completed: 'Marked done', cancelled: 'Request cancelled' }[request.status]);
     };
   });
 
@@ -1152,24 +1354,25 @@ function bindCare() {
     event.preventDefault();
     const form = formData('#caregiver-form');
     const name = String(form.get('name')).trim();
-    const childIds = form.getAll('children').map(String), permissions = form.getAll('permissions').map(String);
+    const childIds = form.getAll('children').map(String), scopes = form.getAll('permissions').map(String);
     if (!name) { toast('Add a caregiver name first.'); return; }
-    if (!childIds.length || !permissions.length) { toast('Choose at least one child and one thing they can see.'); return; }
-    state.care.caregivers.push({ id: uid('caregiver'), name, childIds, permissions });
+    if (!childIds.length || !scopes.length) { toast('Choose at least one child and one thing they can see.'); return; }
+    const id = uid('caregiver');
+    state.care.caregivers.push({ id, display_name: name });
+    setPermissions(id, childIds, scopes);
     done(`${name} added. No invitation was sent.`);
   };
   const savePermissions = $('#save-permissions');
   if (savePermissions) savePermissions.onclick = () => {
     const checked = name => [...document.querySelectorAll(`[name="${CSS.escape(name)}"]:checked`)].map(input => input.value);
-    state.care.caregivers.forEach(p => {
-      p.childIds = checked('child-' + p.id);
-      p.permissions = checked('permission-' + p.id);
-    });
+    state.care.caregivers.forEach(p => setPermissions(p.id, checked('child-' + p.id), checked('permission-' + p.id)));
     done('Permissions saved in this browser');
   };
   document.querySelectorAll('[data-remove-caregiver]').forEach(button => {
     button.onclick = () => {
-      state.care.caregivers = state.care.caregivers.filter(p => p.id !== button.dataset.removeCaregiver);
+      const id = button.dataset.removeCaregiver;
+      state.care.caregivers = state.care.caregivers.filter(p => p.id !== id);
+      state.care.permissions = state.care.permissions.filter(r => r.caregiver_id !== id);
       done('Caregiver removed');
     };
   });
@@ -1177,13 +1380,14 @@ function bindCare() {
   $('#guide-form').onsubmit = event => {
     event.preventDefault();
     const form = formData('#guide-form');
-    for (const key of ['needs', 'calm', 'game']) child[key] = String(form.get(key)).trim();
+    state.guides[child.id] = Object.fromEntries(
+      ['needs', 'what_helps', 'calming_strategies', 'easy_game'].map(key => [key, String(form.get(key)).trim()]));
     done('Caregiver guide saved');
   };
   $('#copy-guide').onclick = copyGuide;
   $('#share-guide').onclick = async () => {
     if (typeof navigator.share !== 'function') { copyGuide(); return; }
-    try { await navigator.share({ title: `Care guide for ${child.name}`, text: $('#guide-text').value }); }
+    try { await navigator.share({ title: `Care guide for ${child.nickname}`, text: $('#guide-text').value }); }
     catch (error) { if (error.name !== 'AbortError') toast('Could not open sharing. Try copying the guide instead.'); }
   };
 }
@@ -1192,19 +1396,20 @@ function bindCare() {
 /* PAAL (chat) */
 
 function paalScreen() {
-  const kids = state.profile.children;
-  const firstName = kids[0]?.name || 'my child';
+  const kids = familyKids();
+  const firstName = kids[0]?.nickname || 'my child';
+  // One chip per support area, using the name of the first child who needs it
   const prompts = [
     `Give me quick screen-free ideas to distract ${firstName} right now`,
     `We’re stuck waiting. Quick ideas to keep ${firstName} busy?`,
-    ...STRUGGLES
-      .filter(s => state.profile.struggles.includes(s.id))
-      .map(s => capitalize(s.example.replace('{child}', firstName)))
+    ...STRUGGLES.map(s => [s, kids.find(c => c.goals.includes(s.id))])
+      .filter(([, child]) => child)
+      .map(([s, child]) => capitalize(s.example.replace('{child}', child.nickname)))
   ];
 
   return `<div class="paal-page">
     <p class="kids-line">Here for
-      ${kids.map((c, i) => `<span class="kid-chip tone-${CHILD_TONES[i % CHILD_TONES.length]}">${esc(c.name)}</span>`).join('')}
+      ${kids.map((c, i) => `<span class="kid-chip tone-${CHILD_TONES[i % CHILD_TONES.length]}">${esc(c.nickname)}</span>`).join('')}
     </p>
 
     <div class="speech">Hi, I’m PAAL! I can help you with anything you need.</div>
@@ -1270,16 +1475,16 @@ const SAFETY = /\b(emergency|danger|abus\w*|suicid\w*|not breathing|unconscious|
 // Scripted answers: find the topic whose keywords appear most in the message.
 function paalReply(text) {
   const t = text.toLowerCase();
-  const kids = state.profile.children;
-  const kid = kids.find(c => c.name && t.includes(c.name.toLowerCase())) || (kids.length === 1 ? kids[0] : null);
-  const who = kid ? esc(kid.name) : 'your child';
+  const kids = familyKids();
+  const kid = kids.find(c => c.nickname && t.includes(c.nickname.toLowerCase())) || (kids.length === 1 ? kids[0] : null);
+  let who = kid ? esc(kid.nickname) : 'your child';
 
   if (SAFETY.test(t)) {
     return `<p>If anyone might be in danger right now, please call <strong>911</strong> (or your local emergency number) right away.</p>
       <p>For anything urgent about your child’s health, contact your pediatrician. I’m a prototype and can only share general ideas.</p>`;
   }
   if (/^(hi|hello|hey|hola)\b/.test(t) && t.length < 25) {
-    return `<p>Hi ${esc(state.profile.parentName)}! Tell me what’s going on with ${esc(childNames())}: bedtime, screens, big feelings, or anything else, and I’ll share ideas that research says can help.</p>`;
+    return `<p>Hi ${esc(state.profile.display_name)}! Tell me what’s going on with ${esc(childNames())}: bedtime, screens, big feelings, or anything else, and I’ll share ideas that research says can help.</p>`;
   }
   if (/\bthank/.test(t)) {
     return `<p>You’re welcome! You’re doing a great job by looking for ideas. I’m here whenever you need me.</p>`;
@@ -1301,6 +1506,12 @@ function paalReply(text) {
       Could you tell me a bit more?</p>`;
   }
 
+  // No name in the message? Use the child who has this support area, if there's only one
+  if (!kid) {
+    const withGoal = kids.filter(c => c.goals.includes(best.id));
+    if (withGoal.length === 1) who = esc(withGoal[0].nickname);
+  }
+
   return `<p>${best.intro.replace('{child}', who)}</p>
     <p><strong>${best.title}</strong><br><small>${best.method}</small></p>
     <ol>${best.steps.map(step => `<li>${step}</li>`).join('')}</ol>
@@ -1320,10 +1531,12 @@ function quickIdeasReply(text, children) {
   const onTheGo = ON_THE_GO.test(text);
   if (onTheGo && pool.some(i => i.anywhere)) pool = pool.filter(i => i.anywhere);
   const picks = pool.sort(() => Math.random() - .5).slice(0, 3);
-  const who = esc(listNames(children.map(c => c.name)));
+  const who = esc(listNames(children.map(c => c.nickname)));
+  const forKids = children.map(c => c.id).join(',');
 
   return `<p>Here are a few screen-free ideas for ${who} you can start right now${onTheGo ? ', no supplies needed' : ''}:</p>
-    <ul class="idea-list">${picks.map(i => `<li><strong>${i.title}:</strong> ${i.how}</li>`).join('')}</ul>
+    <ul class="idea-list">${picks.map(i => `<li><strong>${i.title}:</strong> ${i.how}
+      <button type="button" class="save-idea" data-save-idea="${i.id}" data-kids="${forKids}">☆ Save</button></li>`).join('')}</ul>
     <p><small>Tip: offer a choice of two (“${picks[0]?.title} or ${picks[1]?.title}?”). Kids join in more easily when they get to pick.
       Ask me again for different ideas.</small></p>`;
 }
@@ -1367,6 +1580,23 @@ function bindChat() {
   };
   document.querySelectorAll('[data-prompt]').forEach(chip => { chip.onclick = () => sendMessage(chip.dataset.prompt); });
   document.querySelectorAll('[data-activity]').forEach(button => { button.onclick = () => startActivity(button.dataset.activity); });
+
+  // "☆ Save" on PAAL's quick ideas: one saved row per child (family_saved_ideas)
+  const isSaved = (childId, ideaId) => state.saved_ideas.some(s => s.child_id === childId && s.idea_id === ideaId);
+  document.querySelectorAll('[data-save-idea]').forEach(button => {
+    const ideaId = button.dataset.saveIdea;
+    const childIds = button.dataset.kids.split(',').filter(id => familyKids().some(c => c.id === id));
+    const markSaved = () => { button.disabled = true; button.textContent = '★ Saved'; };
+    if (childIds.length && childIds.every(id => isSaved(id, ideaId))) markSaved();
+    button.onclick = () => {
+      const now = new Date().toISOString();
+      childIds.filter(id => !isSaved(id, ideaId)).forEach(childId =>
+        state.saved_ideas.push({ id: uid('saved'), child_id: childId, idea_id: ideaId, created_at: now }));
+      save();
+      markSaved();
+      toast('Saved. You’ll find it on Home.');
+    };
+  });
   const clear = $('#clear-chat');
   if (clear) clear.onclick = () => { state.chat = []; save(); render(); };
 }
@@ -1559,7 +1789,7 @@ document.addEventListener('keydown', event => { if (event.key === 'Escape') clos
 // Anyone without a profile sees the sign-up page first.
 function currentRoute() {
   const [page = '', id = ''] = location.hash.slice(1).split('/');
-  if (!state.profile) return { page: 'signup' };
+  if (!state.family) return { page: 'signup' };
   if (page === 'learn' && id) return { page: 'lesson', id };
   if (['home', 'learn', 'care', 'paal', 'edit'].includes(page)) return { page };
   return { page: 'home' }; // also catches old #family links
@@ -1597,6 +1827,7 @@ function render() {
     render();
   };
   if (lesson) bindLesson(lesson);
+  if (route.page === 'home') bindHome();
   if (route.page === 'care') bindCare();
   if (route.page === 'paal') bindChat();
 }

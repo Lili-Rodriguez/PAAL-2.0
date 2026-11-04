@@ -259,23 +259,28 @@ legend { margin-bottom: 12px; padding: 0; font-size: 19px; font-weight: 650; let
 }
 .remove-child:hover { background: #f4efe8; color: var(--ink); }
 
-.struggle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.struggle-option {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 16px;
+/* Each child: name, age, then their own support areas */
+.child-block { margin-bottom: 18px; padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: #fffdf9; }
+.child-block .child-row { margin-bottom: 12px; }
+.goal-set legend { margin-bottom: 8px; font-size: 14px; font-weight: 600; letter-spacing: 0; }
+.goal-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.goal-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
   border: 2px solid var(--line);
-  border-radius: 16px;
+  border-radius: 999px;
   background: #fff;
+  font-size: 14px;
   cursor: pointer;
   transition: background .15s, border-color .15s;
 }
-.struggle-option:hover { border-color: var(--tone); }
-.struggle-option:has(input:checked) { border-color: var(--tone); background: var(--tone-bg); }
-.struggle-option input { width: 20px; height: 20px; margin: 2px 0 0; flex: none; accent-color: var(--green); }
-.struggle-option strong { display: block; font-size: 16px; }
-.struggle-option small { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.goal-option:hover { border-color: var(--tone); }
+.goal-option:has(input:checked) { border-color: var(--tone); background: var(--tone-bg); color: var(--tone-fg); font-weight: 600; }
+.goal-option input { width: 16px; height: 16px; margin: 0; accent-color: var(--green); }
+.other-goal { margin-top: 12px; }
+.other-goal[hidden] { display: none; } /* .field's display:grid would otherwise override `hidden` */
 
 .form-errors { padding: 14px 18px; border-radius: 14px; background: #fdeceb; color: #8a2f2a; font-size: 14px; }
 .form-errors p { margin: 0 0 4px; font-weight: 600; }
@@ -301,6 +306,34 @@ legend { margin-bottom: 12px; padding: 0; font-size: 19px; font-weight: 650; let
 .child-card p { margin: 0; color: var(--tone-fg); font-size: 14px; }
 
 .home-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 18px; margin-top: 18px; }
+
+/* "for Mia and Sam" next to a tip or saved idea */
+.for-kids { color: var(--muted); font-size: 12px; font-weight: 600; }
+
+.saved-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.saved-card { display: flex; flex-direction: column; gap: 10px; border-top: 6px solid var(--mascot); }
+.saved-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px; }
+.saved-head h3 { margin: 0; }
+.saved-card p { margin: 0; font-size: 15px; }
+.feedback { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 14px; }
+.feedback > span { margin-right: 4px; color: var(--muted); }
+.feedback .chip[aria-pressed="true"] { border-color: var(--green); background: #e7ecdf; color: var(--green); font-weight: 600; }
+.saved-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; font-size: 13px; }
+
+/* "☆ Save" on PAAL's quick ideas */
+.save-idea {
+  margin-left: 6px;
+  padding: 2px 10px;
+  border: 1px solid #d8cdea;
+  border-radius: 999px;
+  background: #fff;
+  color: #6c4f98;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.save-idea:hover:not(:disabled) { background: #f3eafd; }
+.save-idea:disabled { border-color: transparent; background: transparent; cursor: default; }
 
 .progress-card { display: flex; align-items: center; gap: 26px; }
 .progress-copy { min-width: 0; }
@@ -525,7 +558,9 @@ legend { margin-bottom: 12px; padding: 0; font-size: 19px; font-weight: 650; let
   border-radius: 14px;
   background: #fff;
 }
-.record.accepted { border-color: #bfe3cc; background: #f1f9f4; }
+.record.request-accepted, .record.request-completed { border-color: #bfe3cc; background: #f1f9f4; }
+.record.request-cancelled { opacity: .6; }
+.record.request-cancelled h4 { text-decoration: line-through; }
 .record-time {
   flex: none;
   padding: 4px 10px;
@@ -776,8 +811,8 @@ legend { margin-bottom: 12px; padding: 0; font-size: 19px; font-weight: 650; let
 }
 
 @media (max-width: 600px) {
-  .struggle-grid { grid-template-columns: 1fr; }
   .child-row { grid-template-columns: 1fr 96px auto; }
+  .saved-grid { grid-template-columns: 1fr; }
   .progress-card { flex-direction: column; text-align: center; }
   .lesson-dots { justify-content: center; }
   .talk-card { flex-direction: column; text-align: center; }
