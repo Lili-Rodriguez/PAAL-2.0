@@ -77,6 +77,47 @@ To try it on a phone, use your computer's local IP address (same Wi-Fi), e.g.
   don't show a cached copy.
 - `index.html` (repo root): only redirects to `dist/` for GitHub Pages.
 
+## Work as a group
+
+1. Unzip this source package and create a repository in your group's GitHub account.
+2. Upload the `dist` folder and this README, or push them using Git.
+3. Invite your teammates as repository collaborators.
+4. Each teammate can edit a branch and open a pull request for review.
+
+Changes to your group's copy do not automatically update the original hosted
+ChatGPT Site. Deploy your repository with your chosen static host, or bring
+updated files back to the Site owner for a new deployment.
+
+This export includes no account credentials, hosting identity, or user-entered
+family data. The owner-connected source repository is separate from your
+new shared repository.
+
+## Supabase backend foundation
+
+The initial Supabase migration is
+[`supabase/migrations/20261103220000_initial_shared_care.sql`](./supabase/migrations/20261103220000_initial_shared_care.sql).
+It defines accounts, families, child profiles and care guides, caregiver
+permissions, care blocks, handoff updates, help requests, and saved toolkit
+ideas/feedback. Row-level security checks active family membership and the
+per-child permission scopes (`guide`, `plan`, `toolkit`, `updates`, and
+`requests`). Care guide details are stored separately from basic child details
+so guide access does not automatically grant access to care plans or toolkit
+records.
+
+To try the schema, create a Supabase project and run that migration in its SQL
+Editor. The `create_family` database function creates a family and its owner
+membership together; `accept_help_request` atomically accepts an open request
+for the signed-in caregiver. Do not put a Supabase service-role key in the
+browser or in this repository; a public anon/publishable key is intended for
+client use only when paired with these row-level policies.
+
+This is schema groundwork, not a live connection: the static app still uses
+browser `localStorage` and has no Supabase sign-in, data synchronization, or
+caregiver invitation/acceptance flow. Applying the migration alone will not
+share existing demo data or deliver messages to caregivers. Those require
+additional application integration and a trusted invitation flow before real
+caregiver access should be enabled.
+
 ## Limitations
 
 - Data is saved only in this browser's `localStorage` (key `paal-andres`). It is
