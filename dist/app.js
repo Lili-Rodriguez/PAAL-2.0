@@ -108,22 +108,394 @@ const icons={
  family:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M16 5.5a3 3 0 0 1 0 5.8M17 14a5 5 0 0 1 3.5 4.8"/></svg>',
  care:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18M12 13v5M9.5 15.5h5"/></svg>'
 };
-function art(kind='pair'){return `<svg viewBox="0 0 440 330" role="img" aria-label="A friendly lavender character and peach companion"><path d="M5 315Q40 150 110 270Q130 290 185 315" fill="#c6b477"/><path d="M100 297C96 236 119 179 148 133C166 104 192 66 221 74C257 82 251 114 227 147C198 187 191 244 192 296Z" fill="#cfb7ef"/><path d="M273 296C269 270 259 249 265 214C272 169 328 172 337 212C345 249 354 277 346 297Z" fill="#ffd0b3"/><g fill="white"><ellipse cx="220" cy="103" rx="10" ry="13"/><ellipse cx="240" cy="112" rx="10" ry="13"/><ellipse cx="293" cy="207" rx="9" ry="12"/><ellipse cx="314" cy="206" rx="9" ry="12"/></g><g fill="#20251f"><circle cx="224" cy="108" r="5"/><circle cx="241" cy="117" r="5"/><circle cx="291" cy="210" r="4"/><circle cx="312" cy="210" r="4"/></g><g fill="none" stroke="#20251f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M165 156Q146 250 253 217L271 205M181 160Q178 219 247 207M282 246Q265 231 254 218M327 243Q347 234 354 219M112 286L98 308L127 308M182 286L192 307L212 309M283 287L275 307L257 307M331 286L340 306L355 306M205 146L214 149"/><path d="M250 210L270 175"/><path d="M66 183L60 172M76 178L74 166M363 176L371 163M372 183L385 176"/></g><g fill="#c6b477" stroke="#20251f" stroke-width="1.5"><ellipse cx="270" cy="169" rx="7" ry="14"/><ellipse cx="270" cy="169" rx="14" ry="6"/><circle cx="270" cy="169" r="4"/></g><path d="M207 311L211 287Q218 276 235 286L246 275L249 294L241 305L241 319L234 319L232 306L220 306L218 319L212 319" fill="#155640" stroke="#20251f" stroke-width="2"/><circle cx="243" cy="285" r="2"/><path d="M210 293Q194 288 199 278" fill="none" stroke="#155640" stroke-width="4"/></svg>`}
-const ideas=[
-{id:'connect',title:'Connect, then choose',desc:'A short check-in, then two simple choices.',time:'5 min',supplies:'No supplies',tags:['screen','routine','transition','after','upset','tantrum'],steps:['Start with a brief, calm check-in.','Offer two options you are comfortable with, such as drawing or a quiet game.','Let your child choose the first step.'],quote:'Would you like to draw together or pick a quiet game?',fallback:'If neither option fits, pause and ask what feels hard. You can simplify the choices or revisit the moment later.'},
-{id:'draw',title:'Draw the day',desc:'Share a moment from the day on paper.',time:'10 min',supplies:'Paper + crayons',tags:['after','school','connect','bored','screen','video'],steps:['Set out paper and whatever drawing tools you already have.','Invite your child to draw one moment from their day.','Ask about the drawing without needing it to look a particular way.'],quote:'Want to draw something funny, tricky, or interesting from today?',fallback:'Try drawing alongside your child, or let them tell you a story instead. It is fine if drawing is not their preference.'},
-{id:'routine',title:'Make a transition plan',desc:'Choose a familiar first step together.',time:'5 min',supplies:'No supplies',tags:['bed','sleep','routine','transition','after','leave'],steps:['Choose a calm moment to talk about the transition.','Agree on one small first step, such as putting down bags or choosing a book.','Try the same starting step next time and adjust together.'],quote:'What could we do first when we get home to make it feel easier?',fallback:'Make the first step smaller or offer a choice between two starting points. Treat this as an experiment rather than a rule you must perfect.'},
-{id:'story',title:'Make up a tiny story',desc:'Take turns adding one sentence.',time:'5 min',supplies:'No supplies',tags:['bored','wait','car','connect','screen'],steps:['Start with a character and a funny place.','Invite your child to add a word, sound, or sentence.','Take turns and let the story end whenever you like.'],quote:'A tiny dog found a giant shoe. What happened next?',fallback:'Offer two silly possibilities or tell the first few lines yourself. No need to correct or finish the story.'},
-{id:'notice',title:'A noticing walk',desc:'Explore a familiar space together.',time:'10 min',supplies:'No supplies',tags:['outside','energy','bored','screen'],steps:['Choose a safe place you can explore together.','Invite your child to notice a color, shape, or sound.','Follow one thing they are curious about.'],quote:'Can we find something tiny, something round, and something that moves?',fallback:'Stay indoors and look from a window or explore a room. Adjust to your child’s mobility and sensory needs.'},
-{id:'book',title:'Choose a quiet book moment',desc:'Look, talk, or make up your own version.',time:'5 min',supplies:'A familiar book',tags:['bed','sleep','quiet','tired','screen'],steps:['Offer a familiar book in a comfortable spot.','Let your child choose a page or picture.','Read, describe pictures, or invent your own story together.'],quote:'Which page should we explore first?',fallback:'Try a shorter moment or a different format. Looking at one picture together can be enough for now.'}
+
+// The four sign-up options. Each one has a research-based answer that
+// PAAL shows on the Family page and uses in the chat.
+// `pattern` = words in a chat message that point to this topic.
+// `{child}` is replaced with the child's name (or "your child").
+const STRUGGLES = [
+  {
+    id: 'sleep',
+    label: 'Putting them to sleep',
+    tone: 'lav',
+    pattern: /\b(sleep\w*|asleep|bed\w*|nap\w*|night\w*|wak\w*|tired)\b/g,
+    example: '{child} won’t fall asleep at night',
+    intro: 'Bedtime struggles are really common, and there’s good research on this. Here’s what tends to help {child} wind down:',
+    title: 'A calm, predictable bedtime routine',
+    method: 'Bedtime-routine research by Jodi Mindell and colleagues',
+    teaser: 'The same short routine every night helps children fall asleep faster.',
+    summary: 'In a well-known study led by sleep researcher Jodi Mindell, babies and toddlers whose parents followed the same simple routine every night fell asleep faster and woke up less, within just a few weeks.',
+    steps: [
+      'Pick a bedtime and keep it the same every night, weekends included.',
+      'Use the same 3–4 calm steps in the same order, about 20–30 minutes in total: for example bath, pajamas, a book, a cuddle.',
+      'Turn screens off at least an hour before bed and keep the lights dim.',
+      'Say goodnight while they’re drowsy but still awake, so they learn to fall asleep on their own.',
+      'Give it two to three weeks. Routines work through repetition.'
+    ],
+    nuance: 'Every child is different. Illness, travel, new siblings and growth spurts can throw sleep off for a while. If sleep problems last or you’re worried, talk with your pediatrician.',
+    source: SOURCES.bedtimeRoutine,
+    lessonId: 'bedtime-routine'
+  },
+  {
+    id: 'screens',
+    label: 'Taking them off screens',
+    tone: 'sky',
+    pattern: /\b(screens?|tablets?|ipads?|phones?|tv|television|youtube|videos?|games?|gaming|cartoons?|shows?|devices?)\b/g,
+    example: '{child} fights me when I turn off the tablet',
+    intro: 'Turning screens off is hard for lots of kids (and grown-ups!). Here’s the approach pediatricians recommend:',
+    title: 'Plan screen time, then make the ending predictable',
+    method: 'American Academy of Pediatrics media guidance',
+    teaser: 'Agree on limits ahead of time and give warnings before it ends.',
+    summary: 'The American Academy of Pediatrics and the World Health Organization recommend clear, consistent limits (about an hour a day of quality content for ages 2–5) and planning screen time ahead instead of negotiating it every time.',
+    steps: [
+      'Decide together when and where screens are used, for example after dinner, but not at meals or in bedrooms.',
+      'Agree on the ending before it starts: “Two episodes, then we turn it off.”',
+      'Give a 5-minute and a 1-minute warning, or use a visual timer.',
+      'Use “when–then”: “When the tablet is off, then we can go to the park.”',
+      'Have the next activity ready, and stay calm and consistent if they protest. It gets easier with repetition.'
+    ],
+    nuance: 'The goal isn’t zero screens. Video calls with family and watching together are different from solo scrolling. Choose limits that fit your family, and model them yourself when you can.',
+    source: SOURCES.mediaPlan,
+    lessonId: 'screen-plan'
+  },
+  {
+    id: 'tantrums',
+    label: 'Controlling temper tantrums',
+    tone: 'peach',
+    pattern: /\b(tantrums?|meltdowns?|temper|angry|anger|mad|scream\w*|yell\w*|hit|hits|hitting|kick\w*|cry\w*|upset|frustrat\w*|outbursts?)\b/g,
+    example: '{child} has big tantrums when told no',
+    intro: 'Tantrums are exhausting, and they’re a normal part of growing up. Here’s a well-studied way to respond when {child} melts down:',
+    title: 'Stay calm, keep it short, and praise the calm',
+    method: 'Parent-Child Interaction Therapy (PCIT) by Sheila Eyberg',
+    teaser: 'Give lots of attention to calm behavior and very little to the tantrum.',
+    summary: 'PCIT is one of the most studied approaches for tantrums and defiance in young children. Its core idea: give lots of warm, positive attention to calm behavior, and very little attention to tantrum behavior that isn’t dangerous.',
+    steps: [
+      'Keep everyone safe first. Move your child or nearby objects if you need to.',
+      'Stay calm and use few words: “You’re really mad. I’m right here.”',
+      'Don’t argue, bribe or lecture during the tantrum. Calmly ignore yelling and whining, but never unsafe behavior.',
+      'The moment they calm down, give warm, specific praise: “You calmed your body. That was hard!”',
+      'Every day, spend 5 minutes of “special time” letting them lead the play while you praise, describe and copy what they do.'
+    ],
+    nuance: 'Tantrums are most common between ages 1 and 4. If they are very frequent, very long, or involve hurting themselves or others, talk with your pediatrician. Trained PCIT therapists can help too.',
+    source: SOURCES.pcit,
+    lessonId: 'calm-tantrums'
+  },
+  {
+    id: 'learn',
+    label: 'I just want to learn',
+    tone: 'mint',
+    pattern: /\b(learn\w*|talk\w*|play\w*|connect\w*|bond\w*|language|develop\w*|brain|teach\w*|grow\w*)\b/g,
+    example: 'How can I help {child} learn and grow?',
+    intro: 'I love that you want to learn! One of the most powerful everyday things you can do with {child} is called “serve and return”:',
+    title: 'Serve and return: small back-and-forth moments',
+    method: 'Harvard Center on the Developing Child',
+    teaser: 'Everyday back-and-forth moments build your child’s brain.',
+    summary: 'Harvard researchers found that everyday back-and-forth moments, where your child “serves” with a look, sound or point and you “return” it, help build the brain connections behind language and social skills.',
+    steps: [
+      'Notice the serve: what is your child looking at, pointing to or saying?',
+      'Return it with a smile, a nod, or a few words about it.',
+      'Give it a name: “That’s a big red truck!”',
+      'Take turns and wait. Give them time to respond.',
+      'Follow their lead when they’re ready to move on to something new.'
+    ],
+    nuance: 'You don’t need to be available every moment. Even short exchanges count.',
+    source: SOURCES.harvardServe,
+    lessonId: 'responsive-connection'
+  }
 ];
-const sources={cdcCommunication:{title:'Tips for Connecting and Communicating',publisher:'Centers for Disease Control and Prevention',url:'https://www.cdc.gov/parenting-toddlers/communication/index.html'},cdcRoutines:{title:'Relying on Routines and Rules',publisher:'Centers for Disease Control and Prevention',url:'https://www.cdc.gov/parenting-toddlers/structure-rules/index.html'},cdcPlay:{title:'Child-led Play',publisher:'Centers for Disease Control and Prevention',url:'https://www.cdc.gov/parenting-toddlers/communication/child-led-play.html'},harvardServe:{title:'Serve and Return',publisher:'Harvard University Center on the Developing Child',url:'https://developingchild.harvard.edu/science/key-concepts/serve-and-return/'}};
-const ideaSources={connect:[sources.cdcCommunication,sources.cdcRoutines],draw:[sources.cdcCommunication,sources.harvardServe],routine:[sources.cdcRoutines],story:[sources.harvardServe,sources.cdcCommunication],notice:[sources.cdcPlay],book:[sources.cdcCommunication,sources.harvardServe]};
-const lessons=[{id:'responsive-connection',title:'Small moments of back-and-forth connection',summary:'How ordinary responses to a child’s cues can support connection and early communication.',time:'4 min',sections:[['The idea','When a young child points, babbles, shows you something, or seeks comfort, a responsive back-and-forth exchange can support early communication and relationships. Harvard’s Center on the Developing Child calls these exchanges “serve and return.”'],['What it can look like','Notice what has your child’s attention. Pause, respond with a word, gesture, or shared look, then give them room to respond in their own way. A short exchange counts; it does not need to become a planned activity.'],['A useful nuance','Caregivers cannot be perfectly available every moment. Stress, disability, sensory needs, culture, and a child’s temperament shape what connection looks like. This is a helpful model, not a test of parental performance.']],sources:[sources.harvardServe,sources.cdcCommunication]},{id:'listen-and-name',title:'Listening before solving',summary:'Reflecting a child’s message or feeling can communicate that you are paying attention.',time:'3 min',sections:[['The idea','The CDC recommends active listening: giving attention, reflecting what a child said, and naming a possible feeling without insisting that your guess is right. This can create space for a child to share more.'],['Try a low-pressure phrase','“It sounds like that was frustrating. Did I get that right?” If the child corrects you, follow their lead. Some children prefer fewer words, more processing time, or a nonverbal response.'],['Keep expectations realistic','Listening is not a guarantee that a child will calm down or agree. You can validate a feeling while still holding a necessary safety boundary. Choose a moment and communication style that fit your child.']],sources:[sources.cdcCommunication]},{id:'play-following',title:'Following your child’s lead in play',summary:'Use shared play to connect without turning every moment into a lesson.',time:'4 min',sections:[['The idea','Child-led play gives a child room to choose the activity and direction while an adult follows with attention. The CDC describes imitation and specific descriptions as ways to show interest and support interaction.'],['Try it','Join with a similar toy or describe what your child is doing: “You lined up the blue blocks.” Wait to see whether they invite more. You can keep it brief and use materials or movement that work for your family.'],['A useful nuance','Play preferences vary. A child may want parallel play, movement, quiet, or no adult joining right then. Following their cues matters more than performing a particular play technique.']],sources:[sources.cdcPlay,sources.cdcCommunication]}];
-const lessonActivities={
- 'responsive-connection':{prompt:'What kind of connection feels most doable for your family this week?',choices:['A short back-and-forth moment','Notice and respond to a cue','We need a quieter or lower-energy option'],responses:{'A short back-and-forth moment':'Small moments count. A shared look, sound, or comment can be enough.','Notice and respond to a cue':'You might follow what already has your child’s attention, without needing to plan an activity.','We need a quieter or lower-energy option':'Connection can be quiet: sitting nearby, responding with a gesture, or sharing a calm moment.'}},
- 'listen-and-name':{prompt:'When your child is upset, what feels like a useful first step?',choices:['Pause and listen','Reflect a possible feeling','Give them a little space first'],responses:{'Pause and listen':'A brief pause can help you notice what your child is communicating before deciding what to do.','Reflect a possible feeling':'Try a tentative phrase, then let your child correct you. You do not have to guess perfectly.','Give them a little space first':'Space can be a caring response too. You can stay available and reconnect when they are ready.'}},
- 'play-following':{prompt:'What kind of shared play might fit your child right now?',choices:['Follow their idea','Play alongside them','Keep it brief or skip it today'],responses:{'Follow their idea':'Let your child set the direction, and join only as much as feels comfortable for both of you.','Play alongside them':'Being nearby with a similar activity can feel connecting without taking over their play.','Keep it brief or skip it today':'Play is not a requirement. Your family can choose another comfortable way to connect.'}}
+
+// Lessons for the Learn page. The first three come from the struggles above;
+// the rest are Lili's original lessons.
+// A section body can be a string (paragraph) or a list of steps.
+const LESSONS = [
+  ...STRUGGLES.filter(s => s.id !== 'learn').map(s => ({
+    id: s.lessonId,
+    title: s.title,
+    teaser: s.teaser,
+    time: '4 min',
+    tone: s.tone,
+    sections: [['The idea', s.summary], ['Try it', s.steps], ['A useful nuance', s.nuance]],
+    sources: [s.source]
+  })),
+  {
+    id: 'responsive-connection',
+    title: 'Small moments of back-and-forth connection',
+    teaser: 'How ordinary responses to a child’s cues can support connection and early communication.',
+    time: '4 min',
+    tone: 'mint',
+    sections: [
+      ['The idea', 'When a young child points, babbles, shows you something, or seeks comfort, a responsive back-and-forth exchange can support early communication and relationships. Harvard’s Center on the Developing Child calls these exchanges “serve and return.”'],
+      ['What it can look like', 'Notice what has your child’s attention. Pause, respond with a word, gesture, or shared look, then give them room to respond in their own way. A short exchange counts; it does not need to become a planned activity.'],
+      ['A useful nuance', 'Caregivers cannot be perfectly available every moment. Stress, disability, sensory needs, culture, and a child’s temperament shape what connection looks like. This is a helpful model, not a test of parental performance.']
+    ],
+    sources: [SOURCES.harvardServe, SOURCES.cdcCommunication]
+  },
+  {
+    id: 'listen-and-name',
+    title: 'Listening before solving',
+    teaser: 'Reflecting a child’s message or feeling can communicate that you are paying attention.',
+    time: '3 min',
+    tone: 'pink',
+    sections: [
+      ['The idea', 'The CDC recommends active listening: giving attention, reflecting what a child said, and naming a possible feeling without insisting that your guess is right. This can create space for a child to share more.'],
+      ['Try a low-pressure phrase', '“It sounds like that was frustrating. Did I get that right?” If the child corrects you, follow their lead. Some children prefer fewer words, more processing time, or a nonverbal response.'],
+      ['Keep expectations realistic', 'Listening is not a guarantee that a child will calm down or agree. You can validate a feeling while still holding a necessary safety boundary. Choose a moment and communication style that fit your child.']
+    ],
+    sources: [SOURCES.cdcCommunication]
+  },
+  {
+    id: 'play-following',
+    title: 'Following your child’s lead in play',
+    teaser: 'Use shared play to connect without turning every moment into a lesson.',
+    time: '4 min',
+    tone: 'gold',
+    sections: [
+      ['The idea', 'Child-led play gives a child room to choose the activity and direction while an adult follows with attention. The CDC describes imitation and specific descriptions as ways to show interest and support interaction.'],
+      ['Try it', 'Join with a similar toy or describe what your child is doing: “You lined up the blue blocks.” Wait to see whether they invite more. You can keep it brief and use materials or movement that work for your family.'],
+      ['A useful nuance', 'Play preferences vary. A child may want parallel play, movement, quiet, or no adult joining right then. Following their cues matters more than performing a particular play technique.']
+    ],
+    sources: [SOURCES.cdcPlay, SOURCES.cdcCommunication]
+  }
+];
+
+
+// Guided activities below the chat. PAAL walks you through each step.
+// A step lasts `secs` seconds, or `breathe` breathing cycles of 9 seconds
+// (2s in through the nose, 1s extra sip in, 6s slowly out through the mouth).
+// `{child}` is replaced with the children's names.
+const BREATH_CYCLE = 9;
+const ACTIVITIES = [
+  {
+    id: 'parent-reset',
+    title: 'Parent reset',
+    kind: 'Guided meditation · for you',
+    minutes: 4,
+    tone: 'lav',
+    summary: 'A short breathing and self-kindness practice for when you feel stretched thin.',
+    basedOn: 'Cyclic sighing (Stanford study, Balban et al., 2023), Kristin Neff’s self-compassion break, and mindful-parenting research',
+    sources: [SOURCES.cyclicSighing, SOURCES.selfCompassion, SOURCES.mindfulParenting],
+    steps: [
+      { title: 'Arrive', secs: 18, say: 'Hi, I’m PAAL. Let’s take a few minutes, just for you. Sit or stand somewhere comfortable. You don’t need to do this perfectly. Just follow along.' },
+      { title: 'Notice', secs: 25, say: 'Feel where your body touches the chair or the floor. Let your shoulders drop a little. Notice your breathing, without trying to change it.' },
+      { title: 'Cyclic sighing', breathe: 8, say: 'Now let’s breathe together. Breathe in through your nose, then take one more short sip of air on top. Then let it all out slowly through your mouth. Follow my circle.' },
+      { title: 'Soften', secs: 30, say: 'Let your breathing go back to normal. Unclench your jaw. Relax your hands. Notice anything that feels tight, and let it soften just a little.' },
+      { title: 'Be kind to yourself', secs: 40, say: 'Put a hand on your chest if you like, and say to yourself: This is a hard moment. Hard moments are part of every parent’s life. May I be kind to myself right now.' },
+      { title: 'Choose one thing', secs: 25, say: 'Before you go back, pick one small intention. Maybe: I’ll take one breath before I respond. That’s it. That’s enough.' },
+      { title: 'All done', secs: 12, say: 'Well done. You can come back to this anytime, even for one minute. Doing it daily is where the benefits add up.' }
+    ]
+  }
+];
+
+// Screen-free ideas PAAL suggests in the chat, matched to the child's age.
+// ages = [youngest, oldest]; anywhere = needs no supplies (good for waiting rooms or the car)
+const QUICK_IDEAS = [
+  { title: 'Mirror faces', ages: [0, 2], anywhere: true, how: 'Make a surprised face, a silly face, a happy face, and let them copy you (or copy them!).' },
+  { title: 'Sing and bounce', ages: [0, 3], anywhere: true, how: 'A knee-bounce song like “Row, Row, Row Your Boat” with a big “whee!” at the end.' },
+  { title: 'Pots-and-spoons band', ages: [0, 3], how: 'Hand over a pot and a wooden spoon and drum along to a song you sing together.' },
+  { title: 'Freeze dance', ages: [2, 10], how: 'Sing or hum a song and stop suddenly. Everyone freezes like a statue!' },
+  { title: 'I spy colors', ages: [2, 12], anywhere: true, how: '“I spy something… blue!” Take turns guessing and spying.' },
+  { title: 'Tape road', ages: [2, 6], how: 'Make a road on the floor with painter’s tape and drive toy cars along it.' },
+  { title: 'Little kitchen helper', ages: [2, 10], how: 'Give a real job: washing vegetables, stirring, tearing lettuce, setting out spoons.' },
+  { title: 'Water painting', ages: [2, 8], how: 'A brush and a cup of water on the sidewalk or a fence. The art “disappears” as it dries.' },
+  { title: 'Simon says', ages: [3, 10], anywhere: true, how: 'Mix silly moves (hop like a frog) with calm ones (touch your nose, whisper your name).' },
+  { title: 'Sock basketball', ages: [3, 12], how: 'Roll up socks and shoot them into a laundry basket. Step back after every basket.' },
+  { title: 'Scavenger hunt', ages: [3, 12], anywhere: true, how: 'Find something red, something soft and something round. Older kids: something that starts with “B”.' },
+  { title: 'Pillow fort', ages: [3, 10], how: 'Couch cushions and a blanket. Read or play inside with a flashlight.' },
+  { title: 'Story chain', ages: [4, 17], anywhere: true, how: 'Take turns adding one sentence to a silly story: “Once there was a dragon who hated…”' },
+  { title: 'Would you rather', ages: [5, 17], anywhere: true, how: '“Would you rather have a pet dinosaur or a flying bike?” Take turns asking.' },
+  { title: 'Paper airplane contest', ages: [5, 17], how: 'Fold planes and see whose flies furthest, then try a new design.' },
+  { title: 'Quick card game', ages: [5, 17], how: 'A round of Go Fish, War or Uno.' },
+  { title: '20 questions', ages: [6, 17], anywhere: true, how: 'Think of an animal or a person; everyone else asks yes/no questions to guess it.' },
+  { title: 'Snack chef', ages: [6, 17], how: 'Let them make a snack for everyone: fruit skewers, a sandwich or popcorn.' }
+];
+// Stable ids for saving ideas (family_saved_ideas.idea_id), e.g. 'freeze-dance'
+QUICK_IDEAS.forEach(idea => { idea.id = idea.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); });
+
+
+/* ---------- 2. STATE ---------- */
+
+// A different key from Lili's version ('paal-prototype'), so the two never clash.
+const STORAGE_KEY = 'paal-andres';
+const DATA_VERSION = 2;
+
+// Saved data uses the same names as the tables and columns in Lili's Supabase schema
+// (supabase/migrations/20261103220000_initial_shared_care.sql), so it can be synced later as-is:
+//   profile           → profiles                        { display_name }
+//   family            → families                        { name, children }
+//   family.children   → family_children                 [{ id, nickname, age, goals: ['sleep', …, 'other'], other_goal }]
+//   guides[child_id]  → child_care_guides               { needs, what_helps, calming_strategies, easy_game }
+//   care.caregivers   → family_memberships (caregivers) [{ id, display_name }]
+//   care.permissions  → family_member_child_permissions [{ caregiver_id, child_id, can_view_plan, can_view_guide, can_view_toolkit, can_view_updates, can_view_requests }]
+//   care.blocks       → care_blocks                     [{ id, child_id, care_date, starts_at, title, details, assigned_to, created_at }]
+//   care.updates      → handoff_updates                 [{ id, child_id, kind, body, created_at }]
+//   care.requests     → help_requests                   [{ id, child_id, body, needed_by, assigned_to, status, accepted_by, accepted_at, created_at }]
+//   saved_ideas       → family_saved_ideas              [{ id, child_id, idea_id, created_at }]
+//   idea_feedback     → family_idea_feedback            [{ id, child_id, idea_id, result, note, created_at }]
+// App-only (no table yet): completed lessons, chat, activeChildId, activityRuns, voice.
+
+// What a caregiver may see for a child (the can_view_* columns)
+const CARE_SCOPES = [
+  ['plan', 'Today’s care plan'],
+  ['guide', 'Child care guide'],
+  ['toolkit', 'Saved ideas (family toolkit)'],
+  ['updates', 'Handoff updates'],
+  ['requests', 'Help requests']
+];
+
+function permissionRow(caregiver_id, child_id, scopes) {
+  return { caregiver_id, child_id, ...Object.fromEntries(CARE_SCOPES.map(([s]) => [`can_view_${s}`, scopes.includes(s)])) };
+}
+
+function emptyState() {
+  return {
+    version: DATA_VERSION,
+    profile: null,
+    family: null,
+    guides: {},
+    care: { caregivers: [], permissions: [], blocks: [], updates: [], requests: [] },
+    saved_ideas: [],
+    idea_feedback: [],
+    completed: [],
+    chat: [],
+    activeChildId: null,
+    activityRuns: {},
+    voice: true
+  };
+}
+
+// Upgrade data saved by version 1 of this app, which used different names
+function migrate(saved) {
+  if (saved.version >= DATA_VERSION) return saved;
+  const next = { ...emptyState(), ...saved, version: DATA_VERSION, profile: null };
+  const old = saved.profile;
+  if (old && Array.isArray(old.children)) {
+    next.profile = { display_name: old.parentName || '' };
+    next.family = {
+      name: old.parentName ? `${old.parentName}’s family` : 'My family',
+      children: old.children.map(c => ({ id: c.id, nickname: c.name || '', age: Number(c.age) || 0, goals: [...(old.struggles || [])], other_goal: '' }))
+    };
+    next.guides = Object.fromEntries(old.children.map(c =>
+      [c.id, { needs: c.needs || '', what_helps: '', calming_strategies: c.calm || '', easy_game: c.game || '' }]));
+  }
+  const care = saved.care || {};
+  next.care = {
+    caregivers: (care.caregivers || []).map(p => ({ id: p.id, display_name: p.name || '' })),
+    permissions: (care.caregivers || []).flatMap(p => (p.childIds || []).map(childId => permissionRow(p.id, childId, p.permissions || []))),
+    blocks: (care.blocks || []).map(b => ({ id: b.id, child_id: b.childId, care_date: b.date, starts_at: b.time, title: b.title,
+      details: b.details || '', assigned_to: b.caregiverId || '', created_at: b.createdAt })),
+    updates: (care.updates || []).map(u => ({ id: u.id, child_id: u.childId, kind: u.kind, body: u.text, created_at: u.createdAt })),
+    requests: (care.requests || []).map(r => ({ id: r.id, child_id: r.childId, body: r.text, needed_by: r.time || '',
+      assigned_to: r.caregiverId || '', status: r.status, accepted_by: r.status === 'accepted' ? (r.caregiverId || 'owner') : '',
+      accepted_at: r.acceptedAt || '', created_at: r.createdAt }))
+  };
+  return next;
+}
+
+function loadState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (!saved || typeof saved !== 'object') return emptyState();
+    const loaded = migrate(saved);
+    return { ...emptyState(), ...loaded, care: { ...emptyState().care, ...loaded.care } };
+  } catch {
+    return emptyState();
+  }
+}
+
+function save() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* private mode: keep working in memory */ }
+}
+
+let state = loadState();
+save(); // stores upgraded (migrated) data right away
+
+
+/* ---------- 3. HELPERS ---------- */
+
+const $ = selector => document.querySelector(selector);
+
+const esc = value => String(value ?? '').replace(/[&<>"']/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// Kids get these colors in order; lavender is last so it doesn't look like PAAL
+const CHILD_TONES = ['peach', 'mint', 'sky', 'gold', 'pink', 'lav'];
+const TONE_COLORS = { lav: '#b892ea', peach: '#f4a37f', mint: '#7cc59a', sky: '#7fb0dc', gold: '#e6c25a', pink: '#e994b8' };
+
+// ['Mia', 'Leo', 'Sam'] -> 'Mia, Leo and Sam'
+function listNames(names) {
+  return names.length < 2 ? names.join('') : names.slice(0, -1).join(', ') + ' and ' + names.at(-1);
+}
+
+function familyKids() {
+  return state.family.children;
+}
+
+function childNames() {
+  return listNames(familyKids().map(c => c.nickname));
+}
+
+function ageLabel(age) {
+  const n = Number(age);
+  return n === 0 ? 'Under 1 year' : n === 1 ? '1 year old' : `${n} years old`;
+}
+
+function capitalize(text) {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function isDone(lessonId) {
+  return state.completed.includes(lessonId);
+}
+
+function doneCount() {
+  return LESSONS.filter(l => isDone(l.id)).length;
+}
+
+function toast(message) {
+  $('#announcer').innerHTML = `<div class="toast">${esc(message)}</div>`;
+  setTimeout(() => { $('#announcer').innerHTML = ''; }, 3000);
+}
+
+// Shared eyes for both characters: white eyes, pupils that glance around, a sparkle.
+function eyes(spots, r) {
+  return `<g class="char-eyes">
+    ${spots.map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#fff"/>`).join('')}
+    <g class="char-pupils">
+      ${spots.map(([x, y]) => `<circle cx="${x + 2}" cy="${y + 4}" r="${r}" fill="#20251f"/><circle cx="${x + 2 - r / 3}" cy="${y + 4 - r / 3}" r="${r / 3}" fill="#fff"/>`).join('')}
+    </g>
+  </g>`;
+}
+
+// The PAAL character: the tall purple friend from Lili's original illustration
+// (same body outline and legs as her art() drawing), with a smile and rosy cheeks.
+// Sizes: paal-xs / paal-md / paal-lg / paal-peek (see styles.css)
+// wave = true adds arms, one of them waving.
+function paal(classes = '', wave = false) {
+  return `<svg class="paal ${classes}" viewBox="84 64 184 250" aria-hidden="true">
+    <path class="char-line" d="M112 286L98 308L127 308M182 286L192 307L212 309"/>
+    <g class="paal-sway">
+      <path class="paal-body" d="M100 297C96 236 119 179 148 133C166 104 192 66 221 74C257 82 251 114 227 147C198 187 191 244 192 296Z"/>
+      ${eyes([[219, 102, 10, 13], [239, 111, 10, 13]], 6)}
+      <ellipse class="char-cheek" cx="203" cy="127" rx="7" ry="4.5"/>
+      <ellipse class="char-cheek" cx="234" cy="134" rx="4.5" ry="3.5"/>
+      <path class="char-line" d="M207 136Q217 149 228 139"/>
+      ${wave ? '<path class="char-line" d="M118 200Q100 214 96 236"/><path class="char-line paal-wave" d="M206 172Q236 168 250 136"/>' : ''}
+    </g>
+  </svg>`;
+}
+
+// Kids grow with their age: a short round baby, up to a taller teen.
+function ageStage(age) {
+  const n = Number(age);
+  return n <= 1 ? 'baby' : n <= 4 ? 'toddler' : n <= 9 ? 'kid' : 'teen';
+}
+
+// w = width, h = height, eye = [eye width, eye height, pupil size]
+const STAGES = {
+  baby:    { w: .74, h: 58,  eye: [7, 8.5, 3.6] },
+  toddler: { w: .9,  h: 82,  eye: [8.5, 11, 4.4] },
+  kid:     { w: 1,   h: 104, eye: [9, 11.5, 4.5] },
+  teen:    { w: .94, h: 128, eye: [8.5, 11, 4.3] }
 };
 function rightNowControls(){return `<section class="right-now" aria-label="Right now preferences"><div class="right-now-heading"><span>Right now</span><p>Choose what fits today. You can change these anytime.</p></div>${filterGroups.map(([group,values])=>`<fieldset class="filter-group"><legend>${group}</legend><div class="filter-options">${values.map(value=>`<button type="button" class="filter-option ${data.filters.includes(value)?'selected':''}" aria-pressed="${data.filters.includes(value)}" data-filter="${value}" data-group="${values.join('|')}">${value}</button>`).join('')}</div></fieldset>`).join('')}</section>`}
 const quickMoments=[['After-school screens','My child asks for screens after school. What else could we try?'],['Bedtime','Bedtime transitions are hard for us. What could help?'],['Big feelings','My child is having big feelings. How can I connect?']];

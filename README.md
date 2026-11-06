@@ -1,31 +1,84 @@
-# PAAL interactive prototype
+# PAAL – parenting companion prototype
 
-A buildless HTML, CSS, and JavaScript prototype for a parenting companion.
+A buildless HTML, CSS and JavaScript prototype. This is Andres's version
+(branch `andres-test`), rebuilt from Lili Rodriguez's original PAAL 2.0.
+Lili's original code is unchanged on her repository's `main` branch.
 
 ## Run it
-
-Open `dist/index.html` directly in a browser, or run from this folder:
 
 ```sh
 python3 -m http.server 8000 --directory dist
 ```
 
-Then visit http://localhost:8000. No installation, API key, or build step is needed.
-A local server is recommended for predictable browser storage behavior.
+Then visit http://localhost:8000. No installation, API key or build step is needed.
+To try it on a phone, use your computer's local IP address (same Wi-Fi), e.g.
+`http://192.168.1.23:8000`.
+
+## What it does
+
+- **Sign-up** (first visit): your name, a family name, and your children (name,
+  age, and for each child what they need help with: putting them to sleep, taking
+  them off screens, controlling temper tantrums, "I just want to learn", or
+  "Something else" with a short description).
+- **Home**: your children (each with a character that matches their age), Talk to
+  PAAL, a colorful lesson-progress ring, a Schedule care card, **saved ideas** with
+  a "How did it go?" check-in (Helped / Partly / Didn't fit), and PAAL's
+  research-based tips, each tagged with the kids it applies to.
+- **Learn**: illustrated lessons with a progress bar at the top. Mark a lesson
+  complete to fill in the progress.
+- **Care**: ported from Lili's Care page (her commit `fcd8050`): today's care blocks,
+  handoff updates, help requests (open → accepted → done, or cancelled), caregiver
+  permissions (care plan, care guide, saved ideas/family toolkit, updates,
+  requests), and a shareable caregiver guide (needs, what already helps, what helps
+  them feel calm, an easy game). Local demo only. Nothing is sent to anyone.
+- **PAAL**: a chat box with the PAAL mascot peeking over it. Answers are
+  **scripted**: PAAL matches keywords (sleep, screens, tantrums, learning) to
+  prepared, research-based answers. It is not a live AI. Asking for quick ideas
+  ("distract", "bored", "waiting"…) returns screen-free activities matched to the
+  child's age (`QUICK_IDEAS`), each with a **☆ Save** button.
+- **Guided by PAAL** (below the chat): *Parent reset*, a ~4-minute guided
+  meditation in a full-screen player with a timer, an animated breathing circle
+  and PAAL's voice: cyclic sighing (Balban et al., 2023), Kristin Neff's
+  self-compassion break, and a mindful-parenting intention.
+
+### PAAL's voice
+
+- PAAL's voice is one set of real recordings in `dist/audio/parent-reset/`
+  (`1.m4a` … `7.m4a`, one per step, plus `cue-breath.m4a`, the spoken breathing
+  guide used for the first 3 breaths; about 600 KB in total). The app does not
+  use the browser's built-in voices.
+- They were made with **[Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M)**,
+  an open-source text-to-speech model (Apache-2.0 license), using its
+  highest-rated voice, "Heart" (`af_heart`), at normal speed. Each step is
+  generated as one passage so the pauses are the voice's own. The audio is then
+  slowed by 10% (smooth resampling), which makes it deeper and calmer.
+  Kokoro ran once, offline on a computer; visitors only download the audio files.
+- **If you change a step's text**, re-record it the same way so the voice
+  matches: install `kokoro-js` (npm) in a separate folder, generate the whole step
+  with `voice: 'af_heart', speed: 1`, slow it to 90%, convert to `.m4a`, keep the
+  file name, and bump `AUDIO_VERSION` in `app.js`.
+
+| Struggle | Answer based on |
+|---|---|
+| Putting them to sleep | Bedtime-routine research (Mindell et al., 2009) |
+| Taking them off screens | American Academy of Pediatrics Family Media Plan |
+| Controlling temper tantrums | Parent-Child Interaction Therapy (PCIT, Eyberg) |
+| I just want to learn | Serve and Return (Harvard Center on the Developing Child) |
 
 ## Files to edit
 
-- `dist/index.html`: document title, metadata, and asset references.
-- `dist/styles.css`: system font stack, colors, responsive layouts, and components.
-- `dist/app.js`: screens, form fields, help topics, sample ideas, state, and interactions.
-
-The prototype opens on the **Family** dashboard on each page load. Choose
-**Edit family** to add or update family details; **Get started** from the welcome
-screen opens the family editor when details are still incomplete.
-In `app.js`, `helpTopics` contains 21 support topics; `familyMarkup()` renders
-the family editor; `familyErrors()` validates each child's required topics and
-needs; `ideas` contains the sample suggestions; `render()` selects a screen;
-and `bind()` connects the interactions.
+- `dist/app.js`: everything the app says and does, in six labeled sections:
+  1. **CONTENT**: `STRUGGLES` (sign-up options, answers, chat keywords) and `LESSONS`
+  2. **STATE**: saved data
+  3. **HELPERS**: utilities and the `paal()` character (the purple friend from Lili's illustration)
+  4. **SCREENS**: one function per page (`signupScreen`, `homeScreen`, `learnScreen`, `lessonScreen`, `careScreen`, `paalScreen`)
+  5. **CHAT**: `paalReply()` decides how PAAL answers
+  6. **ROUTER**: page addresses (`#home`, `#learn`, `#learn/<lesson>`, `#care`, `#paal`, `#edit`)
+- `dist/styles.css`: colors and fonts at the top (`:root` and the `.tone-*` colors),
+  then one section per page.
+- `dist/index.html`: page title. Bump `?v=18` after editing CSS/JS so phones
+  don't show a cached copy.
+- `index.html` (repo root): only redirects to `dist/` for GitHub Pages.
 
 ## Work as a group
 
@@ -76,50 +129,9 @@ and caregiver invitations are not implemented. Do not use the prototype to
 store real sensitive family information until those flows and access controls
 have been connected and tested.
 
-## Behavior and limitations
+## Limitations
 
-- Family units support multiple children, each with an optional nickname,
-  age, one or more support topics, required needs/preferences, and optional
-  existing approaches. 'Something else' opens a required custom topic field.
-- `No specific needs` is an acceptable needs/preferences response.
-- The Today page lets you choose the child whose topics should guide the demo.
-- Main navigation follows the Today, Learn, Care, and Family layout. Learn opens the lesson library (with weekly goals available as a secondary view). Care combines today’s caregiver coordination with saved ideas, past attempts, and trusted resources.
-- The Family tab shows selectable child profiles, recent feedback, weekly goals, and additional ideas to explore. Edit family details or add another child from that screen.
-- Each child can have a caregiver guide with their needs, calming strategies, and an easy game to play. Caregivers can share or copy the guide into a message; updates remain local and must be shared again.
-- The Care tab offers browser-local caregiver permission previews, today's care blocks, handoff updates, and help requests with a demo acceptance action. Caregivers can be granted Family toolkit access for selected children; the toolkit shows who has that permission. Names and permissions are not accounts: no invitations, posts, or requests reach another person.
-- Existing one-child browser profiles are migrated when loaded.
-- Family details, saved ideas, feedback, reading status, and weekly family goals persist in this
-  browser's localStorage under `paal-prototype`. They are not synced across
-  teammates or devices.
-- The Learn tab lets parents explore lessons and set or complete weekly Individual and Family goals.
-  Goals roll over on Monday; previous weeks are retained locally. Resource reads
-  are self-reported; the app cannot verify activity on external resource sites.
-- The Learn tab includes a library with short parenting lessons, source links,
-  interactive reflection choices, private lesson comments, and locally saved
-  completion status. Recommendation detail pages include links to the institutional
-  sources that informed each example. Lesson comments and answers stay in this
-  browser and are not shared with other parents.
-- The Today form offers browser speech recognition where supported. Interim
-  speech appears as you speak and can be edited before continuing. Microphone
-  permission is required; typing remains available as a fallback.
-- Reset demo clears the local prototype state after confirmation.
-- Recommendations are static examples, not a live AI service or research database.
-  Matching uses topic keywords and a subset of circumstance controls. Lesson and
-  recommendation references are linked for readers to review; free-text needs and
-  preferences do not produce individualized academic or clinical advice. Evidence
-  summaries are brief and should be interpreted in the context of each family.
-- CSS requests Helvetica, then Helvetica Neue, Arial, and the system sans-serif
-  fallback. A device without Helvetica uses the next available font. No
-  proprietary font files are distributed.
-- The app has no connected account system or live caregiver sync yet. Care-tab
-  permissions and interactions remain local demo previews; no invitations,
-  updates, or help requests are delivered to caregivers. The Supabase migration
-  is an unconnected schema foundation, not production privacy controls or
-  clinical decision support.
-
-## Checks on this revision
-
-Browser checks covered the opening page, family and Care navigation, local
-caregiver permissions, care-block creation and editing, handoff updates, help
-request acceptance, toolkit tabs and search, saved-idea persistence, resource
-access, and a 390px mobile layout. Care-tab changes remain local demo data.
+- Data is saved only in this browser's `localStorage` (key `paal-andres`). It is
+  not synced between devices. **Reset demo** clears it.
+- No accounts, backend or live AI. Tips are general, research-based ideas, not
+  medical advice.
