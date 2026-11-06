@@ -1,67 +1,112 @@
-'use strict';
-
-/* ==========================================================
-   PAAL – a parenting companion prototype
-   ----------------------------------------------------------
-   Plain HTML/CSS/JS. No build step, no backend.
-
-     1. CONTENT  – struggles, tips and lessons (edit the text here)
-     2. STATE    – what the parent entered, saved in this browser
-     3. HELPERS  – small utilities and the PAAL mascot
-     4. SCREENS  – one function per page; each returns HTML
-     5. CHAT     – PAAL's scripted, keyword-based answers
-     6. ROUTER   – reads the #hash in the URL and draws the page
-   ========================================================== */
-
-
-/* ---------- 1. CONTENT ---------- */
-
-const SOURCES = {
-  bedtimeRoutine: {
-    title: 'A nightly bedtime routine: impact on sleep in young children (Mindell et al., 2009)',
-    publisher: 'SLEEP journal',
-    url: 'https://doi.org/10.1093/sleep/32.5.599'
-  },
-  mediaPlan: {
-    title: 'Family Media Plan',
-    publisher: 'American Academy of Pediatrics',
-    url: 'https://www.healthychildren.org/English/fmp/Pages/MediaPlan.aspx'
-  },
-  pcit: {
-    title: 'Parent-Child Interaction Therapy (PCIT)',
-    publisher: 'PCIT International',
-    url: 'https://www.pcit.org/'
-  },
-  harvardServe: {
-    title: 'Serve and Return',
-    publisher: 'Harvard University Center on the Developing Child',
-    url: 'https://developingchild.harvard.edu/science/key-concepts/serve-and-return/'
-  },
-  cdcCommunication: {
-    title: 'Tips for Connecting and Communicating',
-    publisher: 'Centers for Disease Control and Prevention',
-    url: 'https://www.cdc.gov/parenting-toddlers/communication/index.html'
-  },
-  cdcPlay: {
-    title: 'Child-led Play',
-    publisher: 'Centers for Disease Control and Prevention',
-    url: 'https://www.cdc.gov/parenting-toddlers/communication/child-led-play.html'
-  },
-  cyclicSighing: {
-    title: 'Brief structured respiration practices enhance mood and reduce physiological arousal (Balban et al., 2023)',
-    publisher: 'Cell Reports Medicine',
-    url: 'https://doi.org/10.1016/j.xcrm.2022.100895'
-  },
-  selfCompassion: {
-    title: 'Self-Compassion Break',
-    publisher: 'Dr. Kristin Neff',
-    url: 'https://self-compassion.org/'
-  },
-  mindfulParenting: {
-    title: 'The effect of mindfulness interventions for parents on parenting stress and youth psychological outcomes: a meta-analysis (Burgdorf, Szabó & Abbott, 2019)',
-    publisher: 'Frontiers in Psychology',
-    url: 'https://doi.org/10.3389/fpsyg.2019.01336'
-  }
+const $=s=>document.querySelector(s);const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const backendConfig=window.PAAL_SUPABASE_CONFIG||{};
+const backendConfigured=typeof backendConfig.url==='string'&&backendConfig.url.startsWith('https://')&&typeof backendConfig.anonKey==='string'&&backendConfig.anonKey.length>20;
+const cachedAuthUserId=backendConfigured?sessionStorage.getItem('paal-auth-user-id'):'';
+const dataStorageKey=backendConfigured?(cachedAuthUserId?'paal-prototype-user-'+cachedAuthUserId:'paal-prototype-unauthed'):'paal-prototype';
+let supabaseClient=null,authUser=null,authMode=backendConfigured&&sessionStorage.getItem('paal-password-recovery')==='true'?'recovery':'signin',authNotice='',authNoticeType='error',authUnavailable=false;
+const helpTopics=[
+ {group:'Everyday routines',topics:['After-school routines','Morning routines','Bedtime transitions','Mealtimes','Leaving the house','Transitions between activities']},
+ {group:'Screens and play',topics:['Screen-time alternatives','Turning screens off','Handling boredom','Independent play','Creative and outdoor play']},
+ {group:'Connection and emotions',topics:['Connection and quality time','Big feelings and frustration','Calming down','Social skills and friendships','Sibling relationships']},
+ {group:'Family life',topics:['Boundaries and cooperation','Consistency across caregivers','Learning and homework routines','Caregiver capacity and schedules','Something else']}
+];
+let nextChildId=0;
+function newChild(){return {id:'child-'+Date.now().toString(36)+'-'+(++nextChildId),name:'',age:'5',goals:[],otherGoal:'',needs:'',helps:'',regulation:'',game:''}}
+function migrateFamily(old){
+ if(Array.isArray(old?.children)&&old.children.length){return {...old,children:old.children.map(c=>({...newChild(),...c,goals:Array.isArray(c.goals)?c.goals:[]}))}}
+ const child={...newChild(),age:old?.age||'5',goals:old?.goal?[old.goal]:[],needs:old?.needs||'',helps:old?.helps||''};
+ return {name:'',children:[child],activeChildId:child.id};
+}
+const initial={family:migrateFamily(null),saved:[],feedback:[],filters:['At home','Low energy','No extra materials'],concern:'',started:false,readResources:[],weeklyGoals:null,goalHistory:[],care:{caregivers:[],blocks:[],updates:[],requests:[]}};
+let data;try{data={...structuredClone(initial),...JSON.parse(localStorage.getItem(dataStorageKey)||'{}')}}catch{data=structuredClone(initial)}
+data.family=migrateFamily(data.family);
+if(!data.family.children.some(child=>child.id===data.family.activeChildId))data.family.activeChildId=data.family.children[0].id;
+data.feedback=Array.isArray(data.feedback)?data.feedback:[];
+data.feedback.forEach(item=>{if(!item.childId)item.childId=data.family.activeChildId});
+data.readResources=Array.isArray(data.readResources)?data.readResources:[];data.goalHistory=Array.isArray(data.goalHistory)?data.goalHistory:[];data.lessonProgress=Array.isArray(data.lessonProgress)?data.lessonProgress:[];data.lessonComments=data.lessonComments&&typeof data.lessonComments==='object'?data.lessonComments:{};data.lessonAnswers=data.lessonAnswers&&typeof data.lessonAnswers==='object'?data.lessonAnswers:{};
+const careScopes=[['plan','Today’s care plan'],['guide','Child care guide'],['toolkit','Family toolkit'],['updates','Handoff updates'],['requests','Help requests']];
+data.care=data.care&&typeof data.care==='object'?data.care:structuredClone(initial.care);
+for(const key of ['caregivers','blocks','updates','requests'])data.care[key]=Array.isArray(data.care[key])?data.care[key]:[];
+let carePermissionsMigrated=false;
+data.care.caregivers=data.care.caregivers.filter(person=>person&&typeof person==='object'&&typeof person.id==='string').map(person=>{const permissions=Array.isArray(person.permissions)?person.permissions.filter(scope=>careScopes.some(([key])=>key===scope)):[];if(!person.toolkitPermissionConfigured){carePermissionsMigrated=true;if(!permissions.includes('toolkit'))permissions.push('toolkit')}return {...person,name:String(person.name||''),permissions,toolkitPermissionConfigured:true,childIds:Array.isArray(person.childIds)?person.childIds.filter(id=>data.family.children.some(child=>child.id===id)):[]}});
+for(const key of ['blocks','updates','requests'])data.care[key]=data.care[key].filter(item=>item&&typeof item==='object'&&data.family.children.some(child=>child.id===item.childId));
+const previousFilters=JSON.stringify(data.filters);const filterGroups=[['Setting',['At home','Out and about','At someone else’s home']],['Energy',['Low energy','A little energy','Ready to join in']],['Resources',['No extra materials','Everyday items','Materials available']]];const validFilters=filterGroups.flatMap(([,values])=>values);data.filters=(Array.isArray(data.filters)?data.filters:initial.filters).filter(value=>validFilters.includes(value));for(const [,values] of filterGroups)if(!data.filters.some(value=>values.includes(value)))data.filters.push(values[0]);const filtersChanged=previousFilters!==JSON.stringify(data.filters);
+function currentWeekKey(date=new Date()){const monday=new Date(date);monday.setHours(0,0,0,0);monday.setDate(monday.getDate()-(monday.getDay()+6)%7);return `${monday.getFullYear()}-${String(monday.getMonth()+1).padStart(2,'0')}-${String(monday.getDate()).padStart(2,'0')}`}
+const weekKey=currentWeekKey();let weekChanged=false;if(!data.weeklyGoals||!Array.isArray(data.weeklyGoals.items))data.weeklyGoals={week:weekKey,items:[]};else if(data.weeklyGoals.week!==weekKey){data.goalHistory.unshift(data.weeklyGoals);data.weeklyGoals={week:weekKey,items:[]};data.goalHistory=data.goalHistory.slice(0,8);weekChanged=true}for(const week of [data.weeklyGoals,...data.goalHistory])for(const goal of week.items||[])if(goal.category==='Learning'){goal.category='Individual';weekChanged=true}
+delete data.points;if(weekChanged||filtersChanged||carePermissionsMigrated)persist();
+let familyDraft=structuredClone(data.family);
+let page='family',lastPage='options',selected=null,feedbackChoice='',tab='saved',progressTab='learning',activeLessonId=null,query='',offset=0,resourceCategory='All',activeRecognition=null;
+let editingCareBlockId=null;
+function activeChild(){return data.family.children.find(c=>c.id===data.family.activeChildId)||data.family.children[0]}
+function childLabel(c,i){return c.name.trim()||'Child '+(i+1)}
+function collectFamily(formData){return {...familyDraft,name:String(formData.get('family-name')||'').trim(),children:familyDraft.children.map(c=>({...c,name:String(formData.get('name-'+c.id)||'').trim(),age:String(formData.get('age-'+c.id)||'5'),goals:formData.getAll('goals-'+c.id).map(String),otherGoal:String(formData.get('other-'+c.id)||'').trim(),needs:String(formData.get('needs-'+c.id)||'').trim(),helps:String(formData.get('helps-'+c.id)||'').trim(),regulation:String(formData.get('regulation-'+c.id)||'').trim(),game:String(formData.get('game-'+c.id)||'').trim()}))}}
+function familyErrors(family){let errors=[];family.children.forEach((c,i)=>{const label=childLabel(c,i);if(!c.goals.length)errors.push(label+': choose at least one area for support.');if(c.goals.includes('Something else')&&!c.otherGoal)errors.push(label+': describe the other area you want help with.');if(!c.needs.trim())errors.push(label+': add needs and preferences, or write “No specific needs”.')});return errors}
+function familyProfileComplete(family){return family.children.length>0&&familyErrors(family).length===0}
+async function copyCaregiverGuide(){
+ const field=$('#caregiver-guide-text');
+ if(!field)return;
+ try{
+  if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(field.value);toast('Caregiver guide copied. You can send it to another caregiver.');return}
+ }catch(error){
+  field.focus();field.select();toast('Guide selected. Copy it to share with a caregiver.');return;
+ }
+ field.focus();field.select();toast('Guide selected. Copy it to share with a caregiver.');
+}
+async function shareCaregiverGuide(){
+ const field=$('#caregiver-guide-text');
+ if(!field)return;
+ const index=data.family.children.findIndex(child=>child.id===data.family.activeChildId);
+ const title=`Care guide for ${childLabel(activeChild(),index)}`;
+ if(typeof navigator.share!=='function'){await copyCaregiverGuide();return}
+ try{await navigator.share({title,text:field.value})}
+ catch(error){if(error.name!=='AbortError')toast('Could not open sharing. Try copying the guide instead.')}
+}
+function localDateKey(date=new Date()){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`}
+function carePeople(scope,childId,assignedId=''){return data.care.caregivers.filter(person=>person.permissions.includes(scope)&&person.childIds.includes(childId)&&(!assignedId||person.id===assignedId))}
+function careAudience(scope,childId,assignedId=''){const people=carePeople(scope,childId,assignedId);return people.length?people.map(person=>esc(person.name)).join(', '):'No caregivers selected'}
+function careScopeOptions(name,selected=[]){return careScopes.map(([scope,label])=>`<label class="care-check"><input type="checkbox" name="${esc(name)}" value="${scope}" ${selected.includes(scope)?'checked':''}><span>${label}</span></label>`).join('')}
+function careChildOptions(name,selected=[]){const checked=name==='children'?[data.family.activeChildId]:selected;return data.family.children.map((child,index)=>`<label class="care-check"><input type="checkbox" name="${esc(name)}" value="${esc(child.id)}" ${checked.includes(child.id)?'checked':''}><span>${esc(childLabel(child,index))}</span></label>`).join('')}
+function careBlockMarkup(child,today){
+ const blocks=data.care.blocks.filter(block=>block.childId===child.id&&block.date===today).sort((a,b)=>a.time.localeCompare(b.time));
+ return blocks.length?`<div class="care-record-list">${blocks.map(block=>`<article class="care-record"><div class="care-record-time">${esc(block.time)}</div><div class="care-record-main"><h3>${esc(block.title)}</h3>${block.details?`<p>${esc(block.details)}</p>`:''}<small>Caregiver: ${esc(data.care.caregivers.find(person=>person.id===block.caregiverId)?.name||'Not assigned')}</small><small class="care-audience">Local access preview · ${careAudience('plan',child.id,block.caregiverId)}</small></div><div class="care-record-actions"><button type="button" class="link" data-care-edit="${esc(block.id)}">Edit</button><button type="button" class="link care-remove" data-care-delete="${esc(block.id)}">Remove</button></div></article>`).join('')}</div>`:`<p class="care-empty">No care blocks yet. Add who’s doing what and when for today.</p>`;
+}
+function careUpdatesMarkup(child){
+ const updates=data.care.updates.filter(update=>update.childId===child.id).slice().reverse();
+ return updates.length?`<div class="care-record-list">${updates.map(update=>`<article class="care-note"><div class="care-note-meta"><strong>${esc(update.kind)}</strong><time>${new Date(update.createdAt).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}</time></div><p>${esc(update.text)}</p><small class="care-audience">Local access preview · ${careAudience('updates',child.id)}</small></article>`).join('')}</div>`:`<p class="care-empty">No handoff updates yet. Post a short note for the next caregiver.</p>`;
+}
+function careRequestsMarkup(child){
+ const requests=data.care.requests.filter(request=>request.childId===child.id).slice().reverse();
+ return requests.length?`<div class="care-record-list">${requests.map(request=>`<article class="care-request ${request.status==='accepted'?'is-accepted':''}"><div class="care-request-copy"><div class="care-note-meta"><strong>${request.status==='accepted'?'Accepted in this demo':'Help requested'}</strong>${request.time?`<time>By ${esc(request.time)}</time>`:''}</div><p>${esc(request.text)}</p><small class="care-audience">Local access preview · ${careAudience('requests',child.id,request.caregiverId)}</small>${request.status==='accepted'?'<small class="care-accepted-note">Marked accepted in this browser; no caregiver was notified.</small>':''}</div>${request.status==='open'?`<button type="button" class="secondary care-accept" data-care-accept="${esc(request.id)}">Accept in demo</button>`:''}</article>`).join('')}</div>`:`<p class="care-empty">No help requests yet. Ask for a hand with a specific part of today.</p>`;
+}
+function careMarkup(){
+ const child=activeChild(),childIndex=data.family.children.findIndex(item=>item.id===child.id),today=localDateKey(),editing=data.care.blocks.find(block=>block.id===editingCareBlockId&&block.childId===child.id),planCaregivers=carePeople('plan',child.id),requestCaregivers=carePeople('requests',child.id);
+ return `<div class="care-page"><div class="care-intro"><div class="eyebrow">Today, together · ${new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})}</div><h1>Care, in sync.</h1><p class="lead">Make today’s handoffs easier with a simple care plan, quick updates, and specific requests for help.</p></div><div class="care-demo-notice" role="note"><strong>Local demo only · No account or backend connected.</strong><span>Caregivers and activity here are saved only in this browser. No invitation, update, or request is sent or delivered to anyone.</span></div><div class="care-child-picker"><label for="care-child">Planning for</label><select id="care-child">${data.family.children.map((item,index)=>`<option value="${esc(item.id)}" ${item.id===child.id?'selected':''}>${esc(childLabel(item,index))} · age ${esc(item.age)}</option>`).join('')}</select><button type="button" class="link" data-go="family-edit">Edit child details</button></div><section class="care-access-section"><div class="care-section-heading"><div><div class="eyebrow">Local access preview</div><h2>Caregiver permissions</h2><p class="muted">Choose which child and information each named demo caregiver would be allowed to see.</p></div></div><div class="care-access-list">${data.care.caregivers.map(person=>`<article class="care-access-card"><div class="care-person-heading"><div><strong>${esc(person.name)}</strong><span>Demo caregiver · no invitation sent</span></div><button type="button" class="link care-remove" data-caregiver-remove="${esc(person.id)}">Remove</button></div><div class="care-access-groups"><fieldset><legend>Children</legend>${careChildOptions('child-'+person.id,person.childIds)}</fieldset><fieldset><legend>Information</legend>${careScopeOptions('permission-'+person.id,person.permissions)}</fieldset></div></article>`).join('')||'<p class="care-empty">No caregivers added yet. Add a fictional name to preview permissions; this does not create an account or send an invitation.</p>'}</div>${data.care.caregivers.length?'<button type="button" class="secondary care-save-access" id="save-care-permissions">Save demo permissions</button>':''}<form id="caregiver-add-form" class="care-form care-add-form"><h3>Add a caregiver to this demo</h3><label class="field"><span>Caregiver name</span><input name="name" maxlength="60" placeholder="For example, Grandma Jo" required></label><fieldset class="care-choice-group"><legend>Children they may see</legend><div class="care-check-grid">${careChildOptions('children',data.family.children.map(item=>item.id))}</div></fieldset><fieldset class="care-choice-group"><legend>Information they may see</legend><div class="care-check-grid">${careScopeOptions('permissions',['plan','guide','toolkit','updates','requests'])}</div></fieldset><button class="secondary" type="submit">Add to local demo</button></form></section><div class="care-grid"><section class="care-section"><div class="care-section-heading"><div><div class="eyebrow">Today’s plan</div><h2>Care blocks</h2><p class="muted">Add who’s doing what and when. Each block shows its configured audience.</p></div></div><form id="care-block-form" class="care-form"><h3>${editing?'Edit care block':'Add a care block'}</h3><label class="field"><span>What needs to happen?</span><input name="title" maxlength="100" placeholder="Pickup, snack, quiet time…" value="${esc(editing?.title||'')}" required></label><div class="inline-grid"><label class="field"><span>Time</span><input type="time" name="time" value="${esc(editing?.time||'')}" required></label><label class="field"><span>Caregiver</span><select name="caregiver">${planCaregivers.map(person=>`<option value="${esc(person.id)}" ${person.id===editing?.caregiverId?'selected':''}>${esc(person.name)}</option>`).join('')}<option value="" ${!editing?.caregiverId||!planCaregivers.some(person=>person.id===editing.caregiverId)?'selected':''}>Not assigned</option></select></label></div><label class="field"><span>Handoff details <span class="muted">(optional)</span></span><textarea name="details" rows="3" maxlength="400" placeholder="Anything the next caregiver should know?">${esc(editing?.details||'')}</textarea></label><p class="care-form-audience">Local access preview · ${planCaregivers.length?planCaregivers.map(person=>esc(person.name)).join(', '):'No caregivers currently have care-plan access'}</p><div class="care-form-actions"><button class="primary" type="submit">${editing?'Save changes':'Add to today’s plan'}</button>${editing?'<button type="button" class="link" id="cancel-care-edit">Cancel</button>':''}</div></form>${careBlockMarkup(child,today)}</section><section class="care-section"><div class="care-section-heading"><div><div class="eyebrow">A useful handoff</div><h2>Post an update</h2><p class="muted">Leave a brief note about what happened or what helped.</p></div></div><form id="care-update-form" class="care-form"><label class="field"><span>Update type</span><select name="kind"><option>Handoff note</option><option>What helped</option><option>Heads-up</option></select></label><label class="field"><span>Update</span><textarea name="text" rows="4" maxlength="500" placeholder="A short, practical update for the next caregiver…" required></textarea></label><p class="care-form-audience">Local access preview · ${careAudience('updates',child.id)}</p><button class="primary" type="submit">Post local update</button></form><div class="care-subsection"><h3>Recent updates</h3>${careUpdatesMarkup(child)}</div><div class="care-request-section"><div class="care-section-heading"><div><div class="eyebrow">Ask for a hand</div><h2>Request help</h2><p class="muted">Describe one concrete task someone could take on.</p></div></div><form id="care-request-form" class="care-form"><label class="field"><span>What would help?</span><textarea name="text" rows="3" maxlength="300" placeholder="Could someone handle pickup today?" required></textarea></label><div class="inline-grid"><label class="field"><span>By when?</span><input type="time" name="time"></label><label class="field"><span>Ask a caregiver</span><select name="caregiver">${requestCaregivers.map(person=>`<option value="${esc(person.id)}">${esc(person.name)}</option>`).join('')}<option value="" selected>No one specific</option></select></label></div><p class="care-form-audience">Local access preview · ${careAudience('requests',child.id)}</p><button class="primary" type="submit">Post local request</button></form><div class="care-subsection"><h3>Help requests</h3>${careRequestsMarkup(child)}</div></div></section></div></div>`;
+}
+function careLibraryMarkup(){
+ const libraryTabs=[['saved','Saved ideas'],['history','What we tried'],['resources','Resources']];
+ const toolkitCaregivers=carePeople('toolkit',activeChild().id);
+ return `<section class="care-library"><div class="care-section-heading"><div><div class="eyebrow">Handy for the next handoff</div><h2>Family toolkit</h2><p class="muted">Saved ideas, things you’ve tried, and trusted resources—all alongside today’s care plan.</p></div></div><p class="care-library-access"><strong>Toolkit access for ${esc(childLabel(activeChild(),data.family.children.findIndex(child=>child.id===activeChild().id)))}:</strong> ${toolkitCaregivers.length?toolkitCaregivers.map(person=>esc(person.name)).join(', '):'No caregivers have this permission'} <span>· Local demo permission only; no one can access this from another account or device.</span></p><div class="tabs care-library-tabs" role="tablist" aria-label="Family toolkit">${libraryTabs.map(([key,label])=>`<button type="button" class="tab ${tab===key?'active':''}" role="tab" aria-selected="${tab===key}" data-care-library-tab="${key}">${label}</button>`).join('')}</div>${tab==='resources'?`<label class="sr-only" for="care-library-search">Search trusted resources</label><input class="search" id="care-library-search" type="search" placeholder="Find a trusted resource" value="${esc(query)}"><div id="care-library-resources">${resourceList()}</div>`:`<label class="sr-only" for="care-library-search">Search ${tab==='history'?'past attempts':'saved ideas'}</label><input class="search" id="care-library-search" type="search" placeholder="${tab==='history'?'Search past attempts':'Search saved ideas'}" value="${esc(query)}"><div id="care-library-list">${toolkitList()}</div>${tab==='saved'?'<button type="button" class="link" data-go="today">Find an idea to save →</button>':''}`}</section>`;
+}
+function familyScene(){return `<div class="family-scene" aria-hidden="true"><div class="scene-moon"><span></span></div><div class="scene-lamp"></div><div class="scene-door"><span></span></div><div class="scene-body"></div><div class="scene-child"><span class="child-hair"></span><span class="child-eye left"></span><span class="child-eye right"></span><span class="child-smile"></span></div><div class="scene-pebble">☺</div></div>`}
+function familyActivityMarkup(child){
+ const feedback=data.feedback.filter(item=>!item.childId||item.childId===child.id).slice(-5).reverse();
+ if(!feedback.length)return `<div class="family-empty"><div class="family-empty-icon" aria-hidden="true">✦</div><div><h3>Your family's story starts here.</h3><p>When you try an idea and check in on how it went, it will show up here.</p><button class="link" data-go="today">Find something to try →</button></div></div>`;
+ return `<div class="family-activity-list">${feedback.map(item=>{const idea=ideas.find(entry=>entry.id===item.id),result=item.result==='Helped'?'worked':item.result==="Didn't fit"?'didn’t fit':'partly worked',icon=item.result==='Helped'?'✓':item.result==="Didn't fit"?'↻':'~',tone=item.result==='Helped'?'mint':item.result==="Didn't fit"?'rose':'sky';return `<article class="family-activity"><span class="activity-icon ${tone}" aria-hidden="true">${icon}</span><div class="activity-copy"><h3>${esc(idea?.title||'An idea you tried')} <span>${esc(result)}</span></h3>${item.note?`<p>${esc(item.note)}</p>`:''}<small>${new Date(item.date).toLocaleDateString(undefined,{month:'short',day:'numeric'})} · ${esc(item.result)}</small></div><button class="activity-open" type="button" data-family-idea="${esc(item.id)}" aria-label="Revisit ${esc(idea?.title||'idea')}">›</button></article>`}).join('')}</div>`;
+}
+function familyWeekMarkup(){const goals=data.weeklyGoals.items,done=goals.filter(goal=>goal.done).length;return `<section class="family-week-section"><div class="family-section-heading"><span class="family-section-mascot mint-mascot" aria-hidden="true">☺</span><div><div class="eyebrow">Small steps count</div><h2>This week, together</h2></div><button type="button" class="family-text-button" data-go="progress">See your goals →</button></div><div class="family-week-card"><div class="family-week-summary"><div><strong>${goals.length?`${done} of ${goals.length}`:'A little at a time'}</strong><span>${goals.length?'goals reached this week':'Choose a small goal that feels right'}</span></div><div class="family-week-progress" role="progressbar" aria-label="Weekly goals reached" aria-valuemin="0" aria-valuemax="${goals.length||1}" aria-valuenow="${done}"><span style="width:${goals.length?done/goals.length*100:0}%"></span></div></div>${goals.length?goalList(goals,'Family',''):`<div class="family-goal-empty"><p>No goals yet. There are no scores—just small steps that work for your family.</p><div class="family-goal-suggestions"><button type="button" data-goal-suggestion="Family" data-goal-text="Spend 10 minutes doing something we both enjoy">Share a moment</button><button type="button" data-goal-suggestion="Individual" data-goal-text="Read or look through a book together">Read together</button><button type="button" data-go="progress">Make your own +</button></div></div>`}</div></section>`}
+function familyIdeasMarkup(){const suggestions=options().slice(0,3);return `<section class="family-ideas-section"><div class="family-section-heading"><span class="family-section-mascot lavender-mascot" aria-hidden="true">✦</span><div><div class="eyebrow">Curious what might fit?</div><h2>A few ideas to explore</h2></div><button type="button" class="family-text-button" data-go="today">Find your own →</button></div><div class="family-idea-list">${suggestions.map((idea,index)=>`<button type="button" class="family-idea-card" data-family-idea="${idea.id}"><span class="family-idea-icon idea-tone-${index+1}" aria-hidden="true">${['✎','◉','✿'][index]}</span><span class="family-idea-copy"><strong>${esc(idea.title)}</strong><span>${esc(idea.desc)}</span><small>${esc(idea.time)} · ${esc(idea.supplies)}</small></span><span class="family-idea-arrow" aria-hidden="true">→</span></button>`).join('')}</div></section>`}
+function caregiverGuide(child,index){const name=childLabel(child,index);return `A quick guide for caring for ${name} (age ${child.age})\n\nWhat they need: ${child.needs.trim()||'Not added yet'}\nWhat helps them feel calm: ${child.regulation.trim()||child.helps.trim()||'Not added yet'}\nAn easy game to play: ${child.game.trim()||'Not added yet'}\nWhat already helps: ${child.helps.trim()||'Not added yet'}\n\nShared by their caregiver. Please check with their family about anything that may have changed.`}
+function familyHomeMarkup(){const child=activeChild(),index=data.family.children.findIndex(item=>item.id===child.id),focus=child.helps.trim()||child.goals[0]||'Getting to know what works best',guide=caregiverGuide(child,index);return `<div class="family-home"><div class="family-child-tabs" role="tablist" aria-label="Choose a child">${data.family.children.map((item,i)=>`<button class="family-child-tab ${item.id===child.id?'active':''}" type="button" role="tab" aria-selected="${item.id===child.id}" data-family-child="${item.id}">${esc(childLabel(item,i))}, ${esc(item.age)}</button>`).join('')}<button class="family-add-tab" type="button" data-add-family-child>+ Add</button></div><section class="family-profile-card"><div class="family-profile-copy"><div class="eyebrow">${esc(data.family.name||'Your family')}</div><h1>${esc(childLabel(child,index))}<span>, ${esc(child.age)}</span></h1><p>${esc(focus)}</p><button class="family-edit-button" type="button" data-edit-family>Edit family <span aria-hidden="true">↗</span></button></div>${familyScene()}<span class="profile-sparkle sparkle-one" aria-hidden="true">✦</span><span class="profile-sparkle sparkle-two" aria-hidden="true">✧</span></section><section class="caregiver-guide"><div class="caregiver-guide-heading"><div><div class="eyebrow">Made to share</div><h2>A quick guide for caregivers</h2><p class="muted">Share what helps ${esc(childLabel(child,index))} feel supported, wherever they are.</p></div><button class="primary caregiver-share-button" type="button" data-share-guide>Share guide <span aria-hidden="true">↗</span></button></div><label class="caregiver-guide-label" for="caregiver-guide-text">Preview the message</label><textarea id="caregiver-guide-text" class="caregiver-guide-preview" readonly rows="7">${esc(guide)}</textarea><button class="link caregiver-copy-button" type="button" data-copy-guide>Copy guide</button><p class="caregiver-guide-note">Only share with people you trust. This stays in this browser; sending it to someone else does not sync future changes.</p></section><section class="family-latest"><div class="family-latest-heading"><div><div class="eyebrow">A little at a time</div><h2>Latest from ${esc(childLabel(child,index))}</h2></div><button type="button" class="family-see-all" data-go="toolkit">See your village <span aria-hidden="true">→</span></button></div>${familyActivityMarkup(child)}</section>${familyWeekMarkup()}${familyIdeasMarkup()}<div class="family-footer"><span class="family-footer-mascot" aria-hidden="true">☺</span><p>Every family has its own rhythm. Small moments count.</p></div></div>`}
+function familyMarkup(){return `<div class="split"><section><div class="eyebrow">Your family unit</div><h1>About your family.</h1><p class="muted">Add each child and tell us what would make support useful. You can update your family anytime.</p><form id="family-form"><label class="field"><span>Family name <span class="muted">(optional)</span></span><input name="family-name" value="${esc(familyDraft.name||'')}" placeholder="A name for your family unit" autocomplete="off" maxlength="80"></label><div id="family-errors" class="error" role="alert" tabindex="-1"></div>${familyDraft.children.map((c,i)=>`<fieldset class="child-section"><legend>${esc(childLabel(c,i))}</legend><div class="child-header"><span class="muted">Child ${i+1} of ${familyDraft.children.length}</span>${familyDraft.children.length>1?`<button class="remove-child" type="button" data-remove-child="${c.id}" aria-label="Remove ${esc(childLabel(c,i))}">Remove child</button>`:''}</div><div class="inline-grid"><label class="field"><span>Nickname <span class="muted">(optional)</span></span><input name="name-${c.id}" value="${esc(c.name)}" placeholder="e.g. Alex" autocomplete="off" maxlength="60"></label><label class="field"><span>Age <span aria-hidden="true">*</span></span><select name="age-${c.id}" required>${Array.from({length:11},(_,n)=>n+2).map(a=>`<option ${String(a)===String(c.age)?'selected':''} value="${a}">${a} years</option>`).join('')}</select></label></div><div class="field"><span id="goals-label-${c.id}">What do you need help with? <span aria-hidden="true">*</span></span><p class="muted">Choose all that apply.</p><div class="topic-groups" role="group" aria-labelledby="goals-label-${c.id}">${helpTopics.map(g=>`<div class="topic-group"><h3>${g.group}</h3><div class="topic-grid">${g.topics.map(t=>`<label class="topic-choice"><input type="checkbox" name="goals-${c.id}" value="${esc(t)}" ${c.goals.includes(t)?'checked':''}><span>${t}</span></label>`).join('')}</div></div>`).join('')}</div></div><label class="field" id="other-field-${c.id}" ${c.goals.includes('Something else')?'':'hidden'}><span>What else would you like help with? *</span><input name="other-${c.id}" value="${esc(c.otherGoal)}" ${c.goals.includes('Something else')?'required':''} placeholder="Describe the area you have in mind" maxlength="300"></label><label class="field"><span>Needs and preferences <span aria-hidden="true">*</span></span><textarea name="needs-${c.id}" required aria-describedby="needs-hint-${c.id}" placeholder="Interests, sensory or accessibility needs, routines, available time or space…">${esc(c.needs)}</textarea><small class="muted" id="needs-hint-${c.id}">What should options take into account? If none, write “No specific needs”.</small></label><label class="field"><span>What already helps? <span class="muted">(optional)</span></span><input name="helps-${c.id}" value="${esc(c.helps)}" placeholder="Activities or approaches that work for this child" maxlength="300"></label><label class="field"><span>What helps them feel calm? <span class="muted">(optional)</span></span><textarea name="regulation-${c.id}" rows="3" maxlength="500" placeholder="For example: a quiet space, a familiar song, or a few minutes to reset">${esc(c.regulation||'')}</textarea></label><label class="field"><span>An easy game to play together <span class="muted">(optional)</span></span><input name="game-${c.id}" value="${esc(c.game||'')}" placeholder="A favorite simple game, with anything needed" maxlength="300"></label></fieldset>`).join('')}<button class="add-child" type="button" id="add-child">+ Add another child</button><div class="actions"><button class="primary" type="submit">Save family unit <span>→</span></button></div><p class="muted">* Required for each child.</p></form><div class="notice">This demo saves your family unit in this browser, without an account. Use fictional details while exploring.</div></section><aside class="panel lav family-aside"><div class="small-art">${art()}</div><h2>One family. Different needs.</h2><p class="muted">Keep each child’s preferences together, then choose who you’re finding options for.</p><p class="muted">${familyDraft.children.length} ${familyDraft.children.length===1?'child':'children'} in your family unit</p></aside></div>`}
+function childSelector(){return `<label class="child-picker"><span>Finding options for</span><select id="active-child" aria-label="Choose a child">${data.family.children.map((c,i)=>`<option value="${c.id}" ${c.id===activeChild().id?'selected':''}>${esc(childLabel(c,i))} · age ${esc(c.age)}</option>`).join('')}</select></label><button type="button" class="link" data-go="family-edit">Edit family</button>`}
+function persist(){try{data.feedback.forEach(item=>{if(!item.childId)item.childId=data.family.activeChildId});localStorage.setItem(dataStorageKey,JSON.stringify(data))}catch{toast('Browser storage is unavailable. Changes last for this visit.')}}
+function addWeeklyGoal(category,title){const text=String(title||'').trim();if(!text)return false;data.weeklyGoals.items.push({id:'goal-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7),category,text,done:false});persist();return true}
+function toast(t){$('#announcer').innerHTML='<div class="toast">'+esc(t)+'</div>';setTimeout(()=>$('#announcer').innerHTML='',3000)}
+const icons={
+ today:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
+ learn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v14M12 7C9 4.5 5.5 4 3 5v14c3-1 6.5-.5 9 2m0-14c3-2.5 6.5-3 9-2v14c-3-1-6.5-.5-9 2"/></svg>',
+ family:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M16 5.5a3 3 0 0 1 0 5.8M17 14a5 5 0 0 1 3.5 4.8"/></svg>',
+ care:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18M12 13v5M9.5 15.5h5"/></svg>'
 };
 
 // The four sign-up options. Each one has a research-based answer that
@@ -452,1385 +497,125 @@ const STAGES = {
   kid:     { w: 1,   h: 104, eye: [9, 11.5, 4.5] },
   teen:    { w: .94, h: 128, eye: [8.5, 11, 4.3] }
 };
-
-// The kids: round buddies in the same hand-drawn style as PAAL, each in their
-// own color, shaped by age. Extras: baby = pacifier and curl, toddler = hair
-// tuft, kid = cap, teen = headphones. `index` staggers the bounce.
-function kid(tone, age, classes = '', index = 0) {
-  const stage = ageStage(age);
-  const { w, h, eye: [rx, ry, r] } = STAGES[stage];
-  const cx = 305, base = 298;
-  const X = dx => (cx + dx * w).toFixed(1);
-  const Y = k => (base - k * h).toFixed(1);
-  const top = base - 1.04 * h;          // highest point of the head
-  const eyeY = top + ry * 2.9;
-  const gap = Math.max(w, .8);
-  const mouthY = eyeY + ry + 8;
-  const armY = base - .38 * h;
-
-  const body = `M${X(-45)} ${base}C${X(-51)} ${Y(.4)} ${X(-43)} ${Y(.84)} ${X(-15)} ${Y(.96)}`
-    + `C${X(7)} ${Y(1.04)} ${X(31)} ${Y(.97)} ${X(41)} ${Y(.73)}C${X(51)} ${Y(.48)} ${X(49)} ${Y(.2)} ${X(47)} ${base}Z`;
-  const legs = stage === 'baby'
-    ? `M${X(-22)} 296L${X(-26)} 304L${X(-36)} 304M${X(24)} 296L${X(30)} 304L${X(40)} 304`
-    : `M${X(-23)} 290L${X(-29)} 308L${X(-43)} 308M${X(25)} 290L${X(33)} 308L${X(47)} 308`;
-  const lx = cx - 49 * w, rx2 = cx + 49 * w;
-  const arms = stage === 'teen'
-    ? `M${lx} ${armY}Q${lx - 9} ${armY + 8} ${lx - 8} ${armY + 22}M${rx2} ${armY}Q${rx2 + 9} ${armY + 8} ${rx2 + 8} ${armY + 22}`
-    : `M${lx} ${armY}Q${lx - 10} ${armY - 8} ${lx - 13} ${armY - 20}M${rx2} ${armY}Q${rx2 + 10} ${armY - 8} ${rx2 + 13} ${armY - 20}`;
-  const mouth = stage === 'baby'
-    ? `<ellipse cx="${cx + 4}" cy="${mouthY + 1}" rx="7" ry="4" fill="#9ed9e8" class="char-fill-line"/><circle cx="${cx + 4}" cy="${mouthY + 1}" r="2" fill="#fff"/>`
-    : `<path class="char-line" d="M${cx - 3} ${mouthY}Q${cx + 4} ${mouthY + 8} ${cx + 11} ${mouthY}"/>`;
-
-  const extras = {
-    baby: `<path class="char-line" d="M${cx - 2} ${top + 1}q-6 -10 2 -12q6 0 3 6"/>`,
-    toddler: `<path class="char-line" d="M${cx - 6} ${top + 3}l-3 -8M${cx} ${top + 1}l0 -9M${cx + 6} ${top + 2}l3 -7"/>`,
-    kid: `<path class="kid-gear char-fill-line" d="M${cx - 40} ${top + 21}Q${cx - 2} ${top - 34} ${cx + 34} ${top + 20}Q${cx - 3} ${top + 12} ${cx - 40} ${top + 21}Z"/>
-      <path class="kid-gear char-fill-line" d="M${cx + 30} ${top + 18}Q${cx + 46} ${top + 13} ${cx + 55} ${top + 22}Q${cx + 42} ${top + 25} ${cx + 30} ${top + 22}Z"/>`,
-    teen: `<path class="char-line headphone-band" d="M${cx - 44 * w} ${top + 40}Q${cx - 2} ${top - 70} ${cx + 42 * w} ${top + 40}"/>
-      <rect class="kid-gear char-fill-line" x="${cx - 50 * w}" y="${top + 32}" width="11" height="19" rx="5"/>
-      <rect class="kid-gear char-fill-line" x="${cx + 37 * w}" y="${top + 32}" width="11" height="19" rx="5"/>`
-  };
-
-  return `<svg class="kid kid-${stage} tone-${tone} ${classes}" viewBox="236 146 140 168" aria-hidden="true">
-    <path class="char-line" d="${legs}"/>
-    <g class="kid-bounce" style="animation-delay: ${-index * 0.7}s">
-      <path class="kid-body" d="${body}"/>
-      ${eyes([[cx - 10 * gap, eyeY, rx, ry], [cx + 12 * gap, eyeY - 1, rx, ry]], r)}
-      <ellipse class="char-cheek" cx="${cx - 20 * w}" cy="${mouthY + 2}" rx="5.5" ry="3.3"/>
-      <ellipse class="char-cheek" cx="${cx + 27 * w}" cy="${mouthY + 1}" rx="5.5" ry="3.3"/>
-      ${mouth}
-      <path class="char-line" d="${arms}"/>
-      ${extras[stage]}
-    </g>
-  </svg>`;
+function rightNowControls(){return `<section class="right-now" aria-label="Right now preferences"><div class="right-now-heading"><span>Right now</span><p>Choose what fits today. You can change these anytime.</p></div>${filterGroups.map(([group,values])=>`<fieldset class="filter-group"><legend>${group}</legend><div class="filter-options">${values.map(value=>`<button type="button" class="filter-option ${data.filters.includes(value)?'selected':''}" aria-pressed="${data.filters.includes(value)}" data-filter="${value}" data-group="${values.join('|')}">${value}</button>`).join('')}</div></fieldset>`).join('')}</section>`}
+const quickMoments=[['After-school screens','My child asks for screens after school. What else could we try?'],['Bedtime','Bedtime transitions are hard for us. What could help?'],['Big feelings','My child is having big feelings. How can I connect?']];
+function quickMomentMarkup(){return `<div class="quick-moments" aria-label="Common moments"><span class="quick-character" aria-hidden="true">${art()}</span>${quickMoments.map(([label,concern])=>`<button type="button" class="quick-moment" data-quick-concern="${esc(concern)}">${esc(label)}</button>`).join('')}</div>`}
+function options(){let terms=(data.concern+' '+activeChild().goals.join(' ')+' '+activeChild().otherGoal).toLowerCase();return [...ideas].sort((a,b)=>score(b,terms)-score(a,terms))}function score(x,t){const energy=data.filters.find(value=>['Low energy','A little energy','Ready to join in'].includes(value));const setting=data.filters.find(value=>['At home','Out and about','At someone else’s home'].includes(value));const resource=data.filters.find(value=>['No extra materials','Everyday items','Materials available'].includes(value));return x.tags.reduce((n,w)=>n+(t.includes(w)?2:0),0)+(resource==='No extra materials'&&x.supplies==='No supplies'?4:resource==='Materials available'&&x.supplies!=='No supplies'?3:resource==='Everyday items'&&x.supplies==='Paper + crayons'?2:0)+(energy==='Low energy'&&['notice','draw'].includes(x.id)?-2:energy==='A little energy'&&['connect','story','book'].includes(x.id)?1:energy==='Ready to join in'&&['draw','notice'].includes(x.id)?2:0)+(setting==='Out and about'&&['notice','story'].includes(x.id)?2:0)+(setting==='At someone else’s home'&&x.supplies==='No supplies'?1:0)}
+function navigate(p){if(activeRecognition)activeRecognition.stop();if(p==='toolkit'){p='care';if(page==='feedback')tab='history';else if(tab==='resources')tab='saved'}else if(p==='resources'){p='care';tab='resources'}if(page==='family-edit'&&p==='today')p='family';if(p==='family-edit'&&page!=='family-edit')familyDraft=structuredClone(data.family);page=p;query='';render();window.scrollTo({top:0,behavior:'instant'})}function selectIdea(id,from){selected=ideas.find(x=>x.id===id);lastPage=from||page;navigate('detail')}function saveIdea(id){if(data.saved.includes(id)){data.saved=data.saved.filter(x=>x!==id);toast('Removed from your toolkit')}else{data.saved.push(id);toast('Saved to your toolkit')}persist();render()}
+function nav(mobile=false){const items=[['today','Today','today'],['progress','Learn','learn'],['care','Care','care'],['family','Family','family']];return `<nav class="${mobile?'mobile-nav':'side-nav'}" aria-label="Main navigation">${items.map(([route,label,icon])=>{const active=(route==='today'&&(['today','options','detail','feedback','circumstances'].includes(page))&&!(page==='detail'&&['toolkit','care'].includes(lastPage))&&!(page==='feedback'&&['toolkit','care'].includes(lastPage)))||(route==='progress'&&page==='progress')||(route==='care'&&(page==='care'||(page==='detail'&&lastPage==='care')||(page==='feedback'&&lastPage==='care')))||(route==='family'&&(page==='family'||page==='family-edit'));return `<button class="${mobile?'':'nav-item '}${active?'active':''}" data-go="${route}"${active?' aria-current="page"':''}><span aria-hidden="true">${icons[icon]}</span>${label}</button>`}).join('')}</nav>`}
+function shell(content){$('#app').innerHTML=`<div class="layout ${page==='welcome'?'welcome-page':''}"><aside class="sidebar"><button class="logo" data-go="welcome" aria-label="Paal welcome">paal</button>${nav()}<div class="side-foot"><span class="prototype">Interactive prototype</span><p>A few more possibilities.<br>A little more confidence.</p><button class="reset" id="reset">Reset demo</button></div></aside><main class="main"><header class="topbar"><button class="logo" data-go="welcome">paal</button><span class="tagline">Your family. Your way.</span>${backendConfigured?`<span class="account-email">${esc(authUser.email||'')}</span><button class="secondary sign-out" id="sign-out">Sign out</button>`:`<button class="profile" data-go="family" aria-label="Family profile">♙</button>`}</header><div class="fade">${content}</div></main>${nav(true)}</div>`;bind();bindCare();bindCareLibrary();$('#sign-out')?.addEventListener('click',async()=>{const {error}=await supabaseClient.auth.signOut();if(error){toast('Could not sign out: '+error.message)}})}
+function render(){if(backendConfigured&&(!authUser||authMode==='recovery')){renderAuth();return}if(page==='toolkit')page='care';else if(page==='resources'){page='care';tab='resources'}let content='';if(page==='welcome')content=`<div class="hero"><div><div class="eyebrow">A companion for everyday parenting</div><h1>More ways to handle everyday parenting.</h1><p class="lead">Options and resources that fit your family, your circumstances, and the moment you're in.</p><div class="actions"><button class="primary" data-go="family">Get started <span>↗</span></button><button class="link" id="explore">Explore the demo</button></div></div><div class="art">${art()}</div></div><div class="welcome-foot"><span>Tailored to your circumstances</span><span>Practical options</span><span>Room to try again</span></div><p class="muted">An interactive concept with sample suggestions. No account needed.</p>`;
+if(page==='family')content=familyHomeMarkup().replace('See your village','Open care toolkit');
+if(page==='care')content=careMarkup()+careLibraryMarkup();
+if(page==='family-edit')content=familyMarkup();
+if(page==='progress')content=progressShell();
+if(page==='today')content=`<div class="split"><section><div class="eyebrow">Today</div><h1>What's happening today?</h1><p class="muted">Start with a moment you’d like another way to handle.</p><form id="ask-form"><div class="quick-start"><span class="badge">A common moment</span>${quickMomentMarkup()}</div><label for="concern" class="badge">Or describe what's happening</label><div class="voice-entry"><button class="voice-button" id="voice-input" type="button">Speak instead</button><span id="voice-status" role="status" aria-live="polite"></span></div><textarea class="concern" id="concern" name="concern" placeholder="A sentence is enough. What’s happening?">${esc(data.concern)}</textarea><details class="right-now-details"><summary>Adjust for right now <span>${esc(data.filters.join(' · '))}</span></summary>${rightNowControls()}${childSelector()}</details><button class="primary" type="submit">Find options <span>→</span></button></form></section><aside><div class="panel lav"><div class="small-art">${art()}</div><h2>A few more possibilities.</h2><p class="muted">You don't need the perfect words. Tell us what’s going on.</p></div>${data.saved.length?`<button class="row" onclick="selectIdea('${data.saved[0]}','today')"><span class="grow"><span class="muted">Pick up where you left off</span><h3>${esc(ideas.find(x=>x.id===data.saved[0])?.title||'Your toolkit')}</h3></span><span class="arrow">↗</span></button>`:''}<div class="notice">Demo suggestions use simple topic and circumstance matching. They are examples to explore, not individualized professional guidance.</div></aside></div>`;
+if(page==='circumstances')content=`<div class="content"><button class="back" data-go="today">← Back</button><div class="eyebrow">Make it realistic</div><h1>What works for you right now?</h1><p class="muted">Choose what fits this moment. There is no time limit.</p>${rightNowControls()}<button class="primary" data-go="today">Use these circumstances <span>→</span></button></div>`;
+if(page==='options'){let opts=options(),shown=[opts[offset%opts.length],opts[(offset+1)%opts.length]];content=`<div class="content options-page"><button class="back" data-go="today">← Back</button><section class="parent-pause"><div class="pause-art">${art()}</div><div><div class="eyebrow">First, a moment for you</div><h1>Pause. Take one slow breath.</h1><p>You don’t have to solve everything at once. You’re paying attention and looking for a way forward. That matters.</p></div></section><div class="eyebrow">What’s happening</div><p class="options-concern">${esc(data.concern||activeChild().goals.join(', '))}</p><div class="options-heading"><h2>Two approaches you could try</h2><p class="muted">Choose what feels manageable, adapt it, or skip both.</p></div><div class="option-list">${shown.map((x,i)=>`<button class="row option-card" data-idea="${x.id}"><span class="row-no">0${i+1}</span><span class="grow"><h2>${x.title}</h2><p class="option-desc">${x.desc}</p><div class="meta">${x.time} · ${x.supplies}</div></span><span class="arrow">›</span></button>`).join('')}</div><div class="actions"><button class="link" id="more">Show other options</button><button class="link" data-go="circumstances">Adjust what fits right now</button></div><p class="muted citation-hint">Each suggestion includes its sources. There isn’t one right answer for every family.</p></div>`}
+if(page==='detail'){let x=selected||ideas[0];selected=x;content=`<div class="split"><section><button class="back" data-go="${lastPage}">← Back</button><div class="eyebrow">One approach to try</div><h1>${x.title}.</h1><p class="muted">${x.time} · ${x.supplies}</p><ol class="steps">${x.steps.map((s,i)=>`<li><span>${i+1}</span>${s}</li>`).join('')}</ol><div class="quote"><span class="badge">Words you could try</span><p>“${x.quote}”</p></div><details><summary>If this doesn't work</summary><p>${x.fallback}</p></details><details><summary>About this suggestion + resources</summary><p>This suggestion is a practical example, not a rule. Adapt it to your child’s needs, your family’s context, and what feels safe and workable.</p><button class="link" data-go="resources">Explore resource categories →</button></details>${citationMarkup(ideaSources[x.id]||[sources.cdcCommunication])}<div class="actions"><button class="primary" id="try">I'll try this <span>→</span></button><button class="link" data-save="${x.id}">${data.saved.includes(x.id)?'✓ Saved · Remove':'♡ Save for later'}</button></div></section><aside class="panel lav"><div class="small-art">${art()}</div><h2>Make it your own.</h2><p class="muted">You know your family. A small adjustment can make an option feel more realistic.</p></aside></div>`}
+if(page==='feedback')content=`<div class="content feedback-panel"><div class="feedback-character" aria-hidden="true">${art()}</div><div class="eyebrow">Room to learn</div><h1>How did it go?</h1><p>${esc((selected||ideas[0]).title)}</p><div class="feedback-choices" role="group" aria-label="Did the suggestion help?">${['Helped','Partly',"Didn't fit"].map(c=>`<button class="${feedbackChoice===c?'selected':''}" data-feedback="${esc(c)}" aria-pressed="${feedbackChoice===c}">${c}</button>`).join('')}</div><label class="field"><span>Anything you'd change? <span class="muted">(optional)</span></span><textarea id="feedback-note" placeholder="A quick note, if you'd like…"></textarea></label><p class="muted">Your response stays in your family’s browser toolkit.</p><div class="actions"><button class="primary" id="save-feedback">Save feedback <span>→</span></button><button class="link" data-go="today">Skip</button></div></div>`;
+if(page==='toolkit')content=`<div class="content"><div class="eyebrow">Family toolkit</div><h1>A little help, all in one place.</h1><p class="muted">Keep saved ideas, reflections, and trusted resources close by.</p><input class="search" id="toolkit-search" type="search" aria-label="Search toolkit" placeholder="Find an idea or resource" value="${esc(query)}"><div class="tabs"><button class="tab ${tab==='saved'?'active':''}" data-tab="saved">Saved ideas</button><button class="tab ${tab==='history'?'active':''}" data-tab="history">What we tried</button><button class="tab" data-go="resources">Resources ↗</button></div><div id="toolkit-list">${toolkitList()}</div><div class="actions"><button class="link" data-go="today">+ Find another option</button></div></div>`;
+if(page==='resources')content=`<div class="content resource-page"><button class="back" data-go="toolkit">← Your toolkit</button><div class="resource-intro"><div><div class="eyebrow">Explore at your pace</div><h1>Find what fits.</h1></div><div class="resource-character" aria-hidden="true">${art()}</div></div>${resourceList()}</div>`;
+shell(content)}
+const resources=[{title:'HealthyChildren.org',category:'Parent guidance',desc:'Parent information from the American Academy of Pediatrics.',url:'https://www.healthychildren.org/'},{title:'ZERO TO THREE',category:'Parent guidance',desc:'Explore resources focused on babies, toddlers, and their caregivers.',url:'https://www.zerotothree.org/'},{title:'Reading Rockets',category:'Books & learning',desc:'Explore reading activities and resources for families.',url:'https://www.readingrockets.org/'},{title:'PBS KIDS for Parents',category:'Play & outdoors',desc:'Browse activities, play ideas, and family resources.',url:'https://www.pbs.org/parents/'},{title:'Your local library',category:'Books & learning',desc:'An idea to explore: check your library for story times, books, and family events.',url:null},{title:'A nearby park',category:'Play & outdoors',desc:'An idea to explore: choose a familiar, accessible outdoor spot for your family.',url:null}];
+function progressMarkup(){const goals=data.weeklyGoals.items,done=goals.filter(goal=>goal.done).length,learning=goals.filter(goal=>goal.category==='Individual'),family=goals.filter(goal=>goal.category==='Family'),weekStart=new Date(`${data.weeklyGoals.week}T12:00:00`),weekEnd=new Date(weekStart);weekEnd.setDate(weekEnd.getDate()+6);const dateLabel=`${weekStart.toLocaleDateString(undefined,{month:'short',day:'numeric'})}–${weekEnd.toLocaleDateString(undefined,{month:'short',day:'numeric'})}`;return `<div class="content progress-page"><div class="eyebrow">A week that works for your family</div><h1>Small goals, together.</h1><p class="muted">Choose a few things you’d like to learn or try this week. Plans can change; progress is just noticing what happened.</p><section class="week-summary"><div><span class="week-label">THIS WEEK · ${dateLabel}</span><h2>${done} of ${goals.length} goals reached</h2><div class="goal-meter" role="progressbar" aria-label="Weekly goals reached" aria-valuemin="0" aria-valuemax="${goals.length||1}" aria-valuenow="${done}"><span style="width:${goals.length?done/goals.length*100:0}%"></span></div></div><div class="week-characters">${art()}<p>You’re finding your family’s own rhythm.</p></div></section><div class="goal-columns"><section class="goal-group"><div class="progress-heading"><h2>Individual goals</h2><span class="goal-count">${learning.filter(goal=>goal.done).length}/${learning.length}</span></div>${goalList(learning,'Individual','No individual goals yet. Add one below when you’re ready.')}</section><section class="goal-group"><div class="progress-heading"><h2>Family goals</h2><span class="goal-count">${family.filter(goal=>goal.done).length}/${family.length}</span></div>${goalList(family,'Family','No family goals yet. Add one below when you’re ready.')}</section></div><section class="goal-builder"><div class="progress-heading"><h2>Add a goal for this week</h2><span class="muted">Keep it small and specific</span></div><div class="goal-suggestions"><button type="button" data-goal-suggestion="Individual" data-goal-text="Read or look through a book together">Read together</button><button type="button" data-goal-suggestion="Individual" data-goal-text="Explore one educational resource">Explore a resource</button><button type="button" data-goal-suggestion="Family" data-goal-text="Spend 10 minutes doing something we both enjoy">Share a moment</button><button type="button" data-goal-suggestion="Family" data-goal-text="Try one calmer transition this week">Try a new routine</button></div><form id="goal-form" class="goal-form"><label><span>Goal type</span><select name="category"><option>Family</option><option>Individual</option></select></label><label class="goal-text-field"><span>Your goal</span><input name="goal" maxlength="100" placeholder="For example, read together before bed" required></label><button class="primary" type="submit">Add goal <span>+</span></button></form></section><div class="progress-footer"><button class="link" data-go="resources">Browse learning resources →</button><span>Goals are saved privately in this browser. You can update or remove them anytime.</span></div></div>`}
+function progressShell(){return `<div class="content progress-shell"><div class="progress-switch" role="tablist" aria-label="Progress views"><button class="${progressTab==='goals'?'active':''}" role="tab" aria-selected="${progressTab==='goals'}" data-progress-tab="goals">Weekly goals</button><button class="${progressTab==='learning'?'active':''}" role="tab" aria-selected="${progressTab==='learning'}" data-progress-tab="learning">Learning</button></div>${progressTab==='learning'?learningMarkup():progressMarkup()}</div>`}
+function citationMarkup(list){return `<section class="citations"><h2>Sources</h2><ul>${list.map(source=>`<li><a href="${source.url}" target="_blank" rel="noopener noreferrer">${esc(source.title)}</a><span>${esc(source.publisher)}</span></li>`).join('')}</ul></section>`}
+function lessonCommentsMarkup(lesson){const comments=data.lessonComments[lesson.id]||[];return `<section class="lesson-comments"><div class="progress-heading"><div><div class="eyebrow">Your reflection</div><h2>Make this lesson yours.</h2></div><span class="muted">Private in this browser</span></div><p class="muted">What might you try, adapt, or want to remember? Add a note for yourself or your family.</p><form class="lesson-comment-form" data-lesson-comment-form="${lesson.id}"><label class="sr-only" for="lesson-comment">Your private lesson comment</label><textarea id="lesson-comment" name="comment" maxlength="600" placeholder="Write a thought, question, or small next step…" required></textarea><button class="secondary" type="submit">Save note</button></form>${comments.length?`<ol class="lesson-comment-list">${comments.slice().reverse().map(comment=>`<li><p>${esc(comment.text)}</p><time datetime="${esc(comment.date)}">${new Date(comment.date).toLocaleString()}</time></li>`).join('')}</ol>`:'<p class="lesson-comment-empty">Your notes will appear here.</p>'}</section>`}
+function learningMarkup(){const lesson=lessons.find(item=>item.id===activeLessonId);if(lesson){const completed=data.lessonProgress.includes(lesson.id),activity=lessonActivities[lesson.id],answer=data.lessonAnswers[lesson.id],progress=Math.round(data.lessonProgress.length/lessons.length*100);return `<article class="lesson-reader"><div class="lesson-progress-row"><button type="button" class="lesson-close" data-lesson-back aria-label="Back to all lessons">×</button><div class="lesson-progress-track" role="progressbar" aria-label="Lessons completed" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}"><span style="width:${progress}%"></span></div><span class="lesson-mascot" aria-hidden="true">☺</span></div><p class="lesson-progress-note">No scores. Just steps.</p><div class="eyebrow">✦ &nbsp; New from neuroscience · ${lesson.time}</div><h1>${esc(lesson.title)}</h1><p class="lead">${esc(lesson.summary)}</p><div class="lesson-body">${lesson.sections.map(([heading,body])=>`<section><h2>${esc(heading)}</h2><p>${esc(body)}</p></section>`).join('')}</div>${activity?`<section class="lesson-activity"><div class="eyebrow">Pause and reflect</div><h2>${esc(activity.prompt)}</h2><p class="muted">No right answer. Choose what fits today, or just use it as a prompt to think.</p><div class="lesson-choices" role="group" aria-label="Reflection choices">${activity.choices.map(choice=>`<button type="button" class="lesson-choice ${answer===choice?'selected':''}" data-lesson-answer="${esc(choice)}" aria-pressed="${answer===choice}">${esc(choice)}</button>`).join('')}</div>${answer?`<p class="lesson-response" role="status">${esc(activity.responses[answer])}</p>`:''}</section>`:''}${lessonCommentsMarkup(lesson)}${citationMarkup(lesson.sources)}<button class="primary" data-lesson-complete="${lesson.id}" ${completed?'disabled':''}>${completed?'Lesson completed':'Mark lesson complete'} <span>${completed?'✓':'→'}</span></button></article>`}return `<section class="learning-library"><div class="lesson-library-mascot" aria-hidden="true">☺</div><div class="eyebrow">Research-informed, practical, and flexible</div><h1>Learn at your pace.</h1><p class="muted">Short lessons connect child-development research with everyday family life. Each lesson includes its sources and room for context.</p><div class="lesson-list">${lessons.map(lesson=>`<article class="lesson-card"><div><span class="lesson-time">${lesson.time}</span>${data.lessonProgress.includes(lesson.id)?'<span class="lesson-complete-label">Completed</span>':''}<h2>${esc(lesson.title)}</h2><p class="muted">${esc(lesson.summary)}</p><span class="lesson-source-count">${lesson.sources.length} cited ${lesson.sources.length===1?'source':'sources'}</span></div><button class="primary" data-start-lesson="${lesson.id}">Start lesson <span>→</span></button></article>`).join('')}</div><div class="lesson-note"><div class="small-art">${art()}</div><p>Evidence offers useful directions, not one right way to parent. Your child, culture, access needs, and family circumstances matter. This curated library links to research-informed sources; it does not search academic databases live.</p></div><button class="link" data-go="resources">Browse more parenting resources →</button></section>`}
+function goalList(goals,category,emptyText){if(!goals.length)return `<p class="goal-empty">${emptyText}</p>`;return `<ul class="goal-list">${goals.map(goal=>`<li class="goal-item ${goal.done?'is-done':''}"><label><input type="checkbox" data-goal-toggle="${esc(goal.id)}" ${goal.done?'checked':''}><span>${esc(goal.text)}</span></label><button type="button" data-goal-remove="${esc(goal.id)}" aria-label="Remove goal: ${esc(goal.text)}">×</button></li>`).join('')}</ul>`}
+function resourceList(){let list=resources.filter(r=>(resourceCategory==='All'||r.category===resourceCategory)&&(r.title+' '+r.desc).toLowerCase().includes(query.toLowerCase()));return list.map(r=>{const id=resources.indexOf(r),read=data.readResources.includes(id);return `<article class="resource"><div class="category-count">${esc(r.category)}</div><h3>${esc(r.title)}</h3><p class="muted">${esc(r.desc)}</p><div class="resource-actions">${r.url?`<a href="${r.url}" target="_blank" rel="noopener noreferrer">Visit resource ↗</a>`:''}<button class="read-toggle" data-read-resource="${id}" ${read?'disabled':''}>${read?'✓ Read':'Mark as read'}</button></div></article>`}).join('')||`<div class="character-empty"><div class="empty-character" aria-hidden="true">${art()}</div><p class="empty">No matches. Try another search.</p></div>`}
+function toolkitList(){if(tab==='history')return data.feedback.filter(f=>(ideas.find(x=>x.id===f.id)?.title+' '+f.note).toLowerCase().includes(query.toLowerCase())).slice().reverse().map(f=>`<article class="row"><div class="grow"><h3>${esc(ideas.find(x=>x.id===f.id)?.title)}</h3><span class="meta">${esc(f.result)} · ${new Date(f.date).toLocaleDateString()}</span>${f.note?`<p class="muted">${esc(f.note)}</p>`:''}</div><button class="link" data-idea="${f.id}">Revisit</button></article>`).join('')||`<div class="character-empty"><div class="empty-character" aria-hidden="true">${art()}</div><p class="empty">Your reflections will appear here after you try an idea.</p></div>`;return ideas.filter(x=>data.saved.includes(x.id)&&x.title.toLowerCase().includes(query.toLowerCase())).map(x=>`<div class="row"><button class="grow" style="text-align:left;padding:0" data-idea="${x.id}"><h3>${x.title}</h3><span class="meta">${x.time} · ${x.supplies}</span></button><button class="save-toggle" data-save="${x.id}" aria-label="Remove ${x.title}">Remove</button></div>`).join('')||`<div class="character-empty"><div class="empty-character" aria-hidden="true">${art()}</div><p class="empty">Save an option you like and it will be waiting here.</p></div>`}
+function bind(){document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{if(page==='today'&&$('#concern')){data.concern=$('#concern').value;persist()}let destination=b.dataset.go;if(destination==='family'&&page==='welcome'&&!familyProfileComplete(data.family))destination='family-edit';navigate(destination)});document.querySelectorAll('[data-idea]').forEach(b=>b.onclick=()=>selectIdea(b.dataset.idea,page));document.querySelectorAll('[data-save]').forEach(b=>b.onclick=()=>saveIdea(b.dataset.save));document.querySelectorAll('[data-progress-tab]').forEach(button=>button.onclick=()=>{progressTab=button.dataset.progressTab;activeLessonId=null;render()});document.querySelectorAll('[data-start-lesson]').forEach(button=>button.onclick=()=>{activeLessonId=button.dataset.startLesson;render()});document.querySelectorAll('[data-lesson-answer]').forEach(button=>button.onclick=()=>{data.lessonAnswers[activeLessonId]=button.dataset.lessonAnswer;persist();render()});document.querySelectorAll('[data-lesson-comment-form]').forEach(form=>form.addEventListener('submit',event=>{event.preventDefault();const text=String(new FormData(form).get('comment')||'').trim();if(!text)return;const id=form.dataset.lessonCommentForm;data.lessonComments[id]=data.lessonComments[id]||[];data.lessonComments[id].push({text,date:new Date().toISOString()});persist();render();toast('Private note saved')}));$('[data-lesson-back]')?.addEventListener('click',()=>{activeLessonId=null;render()});
+$('[data-lesson-complete]')?.addEventListener('click',event=>{const id=event.currentTarget.dataset.lessonComplete;if(!data.lessonProgress.includes(id)){data.lessonProgress.push(id);persist();render();toast('Lesson added to your learning record')}});$('#goal-form')?.addEventListener('submit',event=>{event.preventDefault();const form=new FormData(event.target);if(addWeeklyGoal(String(form.get('category')),String(form.get('goal')))){render();toast('Weekly goal added')}});document.querySelectorAll('[data-quick-concern]').forEach(button=>button.onclick=()=>{data.concern=button.dataset.quickConcern;data.started=true;offset=0;persist();navigate('options')});document.querySelectorAll('[data-goal-suggestion]').forEach(button=>button.onclick=()=>{if(addWeeklyGoal(button.dataset.goalSuggestion,button.dataset.goalText)){render();toast('Weekly goal added')}});document.querySelectorAll('[data-goal-toggle]').forEach(input=>input.onchange=()=>{const goal=data.weeklyGoals.items.find(item=>item.id===input.dataset.goalToggle);if(goal){goal.done=input.checked;persist();render()}});document.querySelectorAll('[data-goal-remove]').forEach(button=>button.onclick=()=>{data.weeklyGoals.items=data.weeklyGoals.items.filter(goal=>goal.id!==button.dataset.goalRemove);persist();render()});$('#explore')?.addEventListener('click',()=>{data.started=true;data.concern='My child asks for videos after school. What else could we try?';persist();navigate('today')});$('#family-form')?.addEventListener('submit',e=>{e.preventDefault();familyDraft=collectFamily(new FormData(e.target));const errors=familyErrors(familyDraft);if(errors.length){$('#family-errors').innerHTML=errors.map(e=>'<p>'+esc(e)+'</p>').join('');$('#family-errors').focus();return}data.family=structuredClone(familyDraft);if(!data.family.children.some(c=>c.id===data.family.activeChildId))data.family.activeChildId=data.family.children[0].id;data.started=true;persist();navigate('today');toast('Family unit saved')});
+$('#add-child')?.addEventListener('click',()=>{familyDraft=collectFamily(new FormData($('#family-form')));const c=newChild();familyDraft.children.push(c);render();document.querySelector('[name="name-'+c.id+'"]').focus()});
+document.querySelectorAll('[data-remove-child]').forEach(b=>b.onclick=()=>{familyDraft=collectFamily(new FormData($('#family-form')));familyDraft.children=familyDraft.children.filter(c=>c.id!==b.dataset.removeChild);render();$('#add-child').focus()});
+document.querySelectorAll('[name^="goals-"]').forEach(input=>input.addEventListener('change',()=>{const id=input.name.slice(6);const checked=Array.from(document.querySelectorAll('[name="goals-'+id+'"]:checked')).some(x=>x.value==='Something else');const field=$('#other-field-'+id);field.hidden=!checked;field.querySelector('input').required=checked}));
+$('#active-child')?.addEventListener('change',e=>{data.family.activeChildId=e.target.value;persist();toast('Options will use this child’s topics')});
+$('#ask-form')?.addEventListener('submit',e=>{e.preventDefault();data.concern=$('#concern').value.trim()||'My child asks for videos after school. What else could we try?';data.started=true;offset=0;persist();navigate('options')});$('.example')?.addEventListener('click',()=>{$('#concern').value='Bedtime is always a struggle';$('#concern').focus()});document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{if($('#concern'))data.concern=$('#concern').value;let vals=b.dataset.group.split('|');data.filters=data.filters.filter(v=>!vals.includes(v));data.filters.push(b.dataset.filter);persist();render()});$('#more')?.addEventListener('click',()=>{offset=(offset+2)%ideas.length;render()});$('#try')?.addEventListener('click',()=>{feedbackChoice='';navigate('feedback')});document.querySelectorAll('[data-feedback]').forEach(b=>b.onclick=()=>{feedbackChoice=b.dataset.feedback;document.querySelectorAll('[data-feedback]').forEach(x=>{x.classList.toggle('selected',x.dataset.feedback===feedbackChoice);x.setAttribute('aria-pressed',x.dataset.feedback===feedbackChoice)})});$('#save-feedback')?.addEventListener('click',()=>{if(!feedbackChoice){toast('Choose Helped, Partly, or Didn’t fit first.');return}let id=(selected||ideas[0]).id;data.feedback.push({id,result:feedbackChoice,note:$('#feedback-note').value,date:new Date().toISOString()});if(feedbackChoice==='Helped'&&!data.saved.includes(id))data.saved.push(id);persist();tab='history';navigate('toolkit');toast('Reflection saved')});document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()});$('#toolkit-search')?.addEventListener('input',e=>{query=e.target.value;$('#toolkit-list').innerHTML=toolkitList();bindList()});$('#resource-search')?.addEventListener('input',e=>{query=e.target.value;$('#resource-list').innerHTML=resourceList()});document.querySelectorAll('[data-category]').forEach(b=>b.onclick=()=>{resourceCategory=b.dataset.category;document.querySelectorAll('[data-category]').forEach(x=>x.classList.toggle('selected',x===b));$('#resource-list').innerHTML=resourceList()});$('#reset')?.addEventListener('click',()=>{if(confirm('Reset family details, saved ideas, and feedback in this browser?')){data=structuredClone(initial);persist();familyDraft=structuredClone(data.family);navigate('family');toast('Demo reset')}})}
+function bindCareLibrary(){
+ if(page!=='care')return;
+ document.querySelectorAll('[data-care-library-tab]').forEach(button=>button.addEventListener('click',()=>{tab=button.dataset.careLibraryTab;query='';render()}));
+ $('#care-library-search')?.addEventListener('input',event=>{query=event.target.value;if(tab==='resources')$('#care-library-resources').innerHTML=resourceList();else{$('#care-library-list').innerHTML=toolkitList();bindCareLibraryList()}});
 }
-
-// Little illustrations for each lesson, drawn in the lesson's colors.
-const star = (x, y, s, delay) => `<path class="art-star art-twinkle" style="animation-delay:${delay}s"
-  d="M${x} ${y - s}Q${x} ${y} ${x + s} ${y}Q${x} ${y} ${x} ${y + s}Q${x} ${y} ${x - s} ${y}Q${x} ${y} ${x} ${y - s}Z"/>`;
-const heart = (x, y, s, cls = '') => `<path class="${cls}" d="M${x} ${y + 9 * s}C${x - 9 * s} ${y + 3 * s} ${x - 10 * s} ${y - 5 * s} ${x - 4.5 * s} ${y - 6.5 * s}`
-  + `C${x - 2 * s} ${y - 7 * s} ${x - .5 * s} ${y - 5.5 * s} ${x} ${y - 4 * s}C${x + .5 * s} ${y - 5.5 * s} ${x + 2 * s} ${y - 7 * s} ${x + 4.5 * s} ${y - 6.5 * s}`
-  + `C${x + 10 * s} ${y - 5 * s} ${x + 9 * s} ${y + 3 * s} ${x} ${y + 9 * s}Z"/>`;
-const peep = (x, y) => `<ellipse cx="${x}" cy="${y}" rx="4" ry="5" fill="#fff" class="art-plain"/><circle cx="${x + 1}" cy="${y + 1.5}" r="2" fill="#20251f" class="art-plain"/>`;
-
-const LESSON_ART = {
-  'bedtime-routine': `
-    <path d="M80 20A27 27 0 1 0 106 60A22 22 0 0 1 80 20Z" fill="#f8e7a8"/>
-    <path class="art-line" d="M60 44q4 3 8 0M62 56q4 3 8 0"/><circle cx="57" cy="51" r="3" class="art-cheek"/>
-    ${star(30, 30, 7, 0)}${star(130, 22, 6, .8)}${star(138, 66, 5, 1.5)}${star(38, 74, 4, 2.1)}
-    <path class="art-line art-float" d="M112 42h8l-8 8h8M124 30h6l-6 6h6"/>`,
-  'screen-plan': `
-    <rect x="30" y="16" width="60" height="70" rx="10" fill="#fff"/>
-    <rect x="37" y="24" width="46" height="48" rx="4" fill="var(--kid)"/>
-    <path d="M54 39L54 57L69 48Z" fill="#fff"/><circle cx="60" cy="79" r="2" fill="#20251f" class="art-plain"/>
-    <rect x="114" y="28" width="10" height="7" rx="2" fill="#fff"/>
-    <circle cx="119" cy="57" r="22" fill="#fff"/>
-    <path d="M119 37A20 20 0 0 1 137 66L119 57Z" fill="var(--tone)" class="art-plain" opacity=".55"/>
-    <path class="art-line art-spin" d="M119 57L119 43"/><path class="art-line" d="M119 57L127 61"/>
-    <circle cx="119" cy="57" r="22" fill="none"/>`,
-  'calm-tantrums': `
-    <path d="M24 60C12 60 12 42 25 42C25 29 42 25 48 34C54 23 73 28 70 43C81 43 81 60 70 60Z" fill="#e6e0eb"/>
-    <path d="M47 60L37 76H45L40 90L56 70H48L54 60Z" fill="#f3c94f"/>
-    <path class="art-line" d="M84 54H104M98 48L104 54L98 60"/>
-    ${heart(130, 52, 2.2, 'art-heart art-pulse')}
-    <path class="art-line art-twinkle" d="M108 30l4 5M152 30l-4 5M130 18v7"/>`,
-  'responsive-connection': `
-    <path class="art-line" d="M12 90H148"/>
-    <path d="M22 90C20 64 28 38 48 32C63 28 72 44 67 62C64 74 64 84 66 90Z" fill="#cfb7ef"/>
-    ${peep(52, 46)}${peep(61, 48)}<path class="art-line" d="M51 58q5 4 10 0"/>
-    <path d="M106 90C102 74 108 61 123 59C138 57 146 70 142 90Z" fill="var(--kid)"/>
-    ${peep(119, 72)}${peep(129, 72)}<path class="art-line" d="M119 82q5 4 10 0"/>
-    <path class="art-line art-dash" d="M70 40Q88 14 108 52"/>
-    <circle cx="88" cy="26" r="7" fill="var(--tone)" class="art-float"/>`,
-  'listen-and-name': `
-    <path d="M20 18H84A10 10 0 0 1 94 28V54A10 10 0 0 1 84 64H46L32 76V64H20A10 10 0 0 1 10 54V28A10 10 0 0 1 20 18Z" fill="#fff"/>
-    <circle cx="36" cy="41" r="4" class="art-dot" fill="#20251f"/><circle cx="52" cy="41" r="4" class="art-dot" fill="#20251f" style="animation-delay:.15s"/>
-    <circle cx="68" cy="41" r="4" class="art-dot" fill="#20251f" style="animation-delay:.3s"/>
-    <path d="M104 40H142A8 8 0 0 1 150 48V70A8 8 0 0 1 142 78H136V90L124 78H104A8 8 0 0 1 96 70V48A8 8 0 0 1 104 40Z" fill="var(--kid)"/>
-    ${heart(123, 58, 1.4, 'art-heart-white art-pulse')}`,
-  'play-following': `
-    <path class="art-line" d="M12 86H148"/>
-    <rect x="22" y="58" width="28" height="28" rx="4" fill="var(--kid)"/>
-    <rect x="52" y="58" width="28" height="28" rx="4" fill="#fff"/>
-    <rect x="36" y="28" width="28" height="28" rx="4" fill="var(--tone)" transform="rotate(-8 50 42)"/>
-    <circle cx="116" cy="66" r="19" fill="#fff" class="art-float"/>
-    <path class="art-line" d="M97 66Q116 56 135 66M116 47Q108 66 116 85" style="stroke: var(--tone)"/>
-    ${star(140, 28, 6, .4)}${star(96, 22, 4, 1.2)}`
-};
-
-function lessonArt(lesson, classes = '') {
-  return `<svg class="lesson-svg ${classes}" viewBox="0 0 160 100" aria-hidden="true">${LESSON_ART[lesson.id] || ''}</svg>`;
+function bindCareLibraryList(){
+ document.querySelectorAll('#care-library-list [data-idea]').forEach(button=>button.onclick=()=>selectIdea(button.dataset.idea,'care'));
+ document.querySelectorAll('#care-library-list [data-save]').forEach(button=>button.onclick=()=>saveIdea(button.dataset.save));
 }
-
-const ICONS = {
-  home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
-  care: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18M12 13v5M9.5 15.5h5"/></svg>',
-  learn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v14M12 7C9 4.5 5.5 4 3 5v14c3-1 6.5-.5 9 2m0-14c3-2.5 6.5-3 9-2v14c-3-1-6.5-.5-9 2"/></svg>',
-  paal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M9 11h.01M15 11h.01"/></svg>'
-};
-
-
-/* ---------- 4. SCREENS ---------- */
-
-// Page frame: sidebar on desktop, bottom tabs on phones.
-// Order requested: Home (left) · Learn · Care · PAAL (right).
-function shell(active, content) {
-  const nav = mobile => `<nav class="${mobile ? 'mobile-nav' : 'side-nav'}" aria-label="Main navigation">
-    ${[['home', 'Home'], ['learn', 'Learn'], ['care', 'Care'], ['paal', 'PAAL']].map(([page, label]) =>
-      `<a class="nav-item" href="#${page}" ${page === active ? 'aria-current="page"' : ''}>${ICONS[page]}<span>${label}</span></a>`
-    ).join('')}
-  </nav>`;
-
-  return `<div class="layout">
-    <aside class="sidebar">
-      <a class="logo" href="#home">paal</a>
-      ${nav(false)}
-      <div class="side-foot">
-        <p>A few more possibilities.<br>A little more confidence.</p>
-        <button class="reset" id="reset">Reset demo</button>
-      </div>
-    </aside>
-    <header class="topbar"><a class="logo" href="#home">paal</a><span class="tagline">Your family. Your way.</span></header>
-    <main class="main">${content}</main>
-    ${nav(true)}
-  </div>`;
+function bindCare(){
+ if(page!=='care')return;
+ $('#care-child')?.addEventListener('change',event=>{data.family.activeChildId=event.target.value;persist();editingCareBlockId=null;render()});
+ $('#caregiver-add-form')?.addEventListener('submit',event=>{
+  event.preventDefault();const form=new FormData(event.currentTarget),name=String(form.get('name')||'').trim(),permissions=form.getAll('permissions').map(String),childIds=form.getAll('children').map(String);
+  if(!name){toast('Add a caregiver name for this local demo.');return}
+  if(!permissions.length||!childIds.length){toast('Choose at least one child and one information permission.');return}
+  data.care.caregivers.push({id:'caregiver-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7),name,permissions,toolkitPermissionConfigured:true,childIds});persist();render();toast('Caregiver added to this browser’s demo only; no invitation was sent.')
+ });
+ $('#save-care-permissions')?.addEventListener('click',()=>{
+  data.care.caregivers.forEach(person=>{person.permissions=Array.from(document.querySelectorAll(`[name="permission-${CSS.escape(person.id)}"]:checked`),input=>input.value);person.toolkitPermissionConfigured=true;person.childIds=Array.from(document.querySelectorAll(`[name="child-${CSS.escape(person.id)}"]:checked`),input=>input.value)});persist();render();toast('Demo permissions saved in this browser; nothing was shared.')
+ });
+ $('#care-block-form')?.addEventListener('submit',event=>{
+  event.preventDefault();const form=new FormData(event.currentTarget),id=editingCareBlockId,existing=data.care.blocks.find(block=>block.id===id),block={id:id||'care-block-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7),childId:activeChild().id,date:localDateKey(),time:String(form.get('time')||''),title:String(form.get('title')||'').trim(),details:String(form.get('details')||'').trim(),caregiverId:String(form.get('caregiver')||''),createdAt:existing?.createdAt||new Date().toISOString()};
+  if(!block.title||!block.time){toast('Add a care task and time before saving.');return}
+  if(existing)Object.assign(existing,block);else data.care.blocks.push(block);editingCareBlockId=null;persist();render();toast(existing?'Care block updated in this browser’s demo.':'Care block added to today’s local demo plan.')
+ });
+ $('#cancel-care-edit')?.addEventListener('click',()=>{editingCareBlockId=null;render()});
+ $('#care-update-form')?.addEventListener('submit',event=>{
+  event.preventDefault();const form=new FormData(event.currentTarget),text=String(form.get('text')||'').trim();if(!text){toast('Write a short update before posting.');return}
+  data.care.updates.push({id:'care-update-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7),childId:activeChild().id,kind:String(form.get('kind')||'Handoff note'),text,createdAt:new Date().toISOString()});persist();render();toast('Update saved in this browser; no caregiver was notified.')
+ });
+ $('#care-request-form')?.addEventListener('submit',event=>{
+  event.preventDefault();const form=new FormData(event.currentTarget),text=String(form.get('text')||'').trim();if(!text){toast('Describe what help would be useful.');return}
+  data.care.requests.push({id:'care-request-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7),childId:activeChild().id,text,time:String(form.get('time')||''),caregiverId:String(form.get('caregiver')||''),status:'open',createdAt:new Date().toISOString()});persist();render();toast('Request saved in this browser; no caregiver was notified.')
+ });
+ document.querySelectorAll('[data-care-edit]').forEach(button=>button.addEventListener('click',()=>{editingCareBlockId=button.dataset.careEdit;const block=data.care.blocks.find(item=>item.id===editingCareBlockId);if(block)data.family.activeChildId=block.childId;render();$('#care-block-form')?.scrollIntoView({behavior:'smooth',block:'center'})}));
+ document.querySelectorAll('[data-care-delete]').forEach(button=>button.addEventListener('click',()=>{data.care.blocks=data.care.blocks.filter(block=>block.id!==button.dataset.careDelete);if(editingCareBlockId===button.dataset.careDelete)editingCareBlockId=null;persist();render();toast('Care block removed from this browser’s demo.')}));
+ document.querySelectorAll('[data-care-accept]').forEach(button=>button.addEventListener('click',()=>{const request=data.care.requests.find(item=>item.id===button.dataset.careAccept);if(request?.status==='open'){request.status='accepted';request.acceptedAt=new Date().toISOString();persist();render();toast('Marked accepted in this demo; no caregiver was notified.')}}));
+ document.querySelectorAll('[data-caregiver-remove]').forEach(button=>button.addEventListener('click',()=>{data.care.caregivers=data.care.caregivers.filter(person=>person.id!==button.dataset.caregiverRemove);persist();render();toast('Caregiver removed from this browser’s demo access list.')}));
 }
-
-
-/* Sign-up (first visit) and Edit family use the same form. */
-
-let draft = null; // the form while it's being filled in
-
-function newChild() {
-  return { id: 'c' + Math.random().toString(36).slice(2, 9), nickname: '', age: '', goals: [], other_goal: '' };
-}
-
-function startDraft() {
-  draft = state.family
-    ? { display_name: state.profile.display_name, family_name: state.family.name, children: structuredClone(state.family.children) }
-    : { display_name: '', family_name: '', children: [newChild()] };
-}
-
-// Support areas a parent can pick for each child: the four STRUGGLES plus "Something else"
-const GOAL_OPTIONS = [...STRUGGLES.map(s => [s.id, s.label, s.tone]), ['other', 'Something else', 'pink']];
-
-function signupScreen() {
-  const editing = Boolean(state.family);
-
-  const ageOptions = selected => ['<option value="">Age</option>',
-    ...Array.from({ length: 18 }, (_, n) =>
-      `<option value="${n}" ${String(n) === String(selected) ? 'selected' : ''}>${n === 0 ? 'Under 1' : n}</option>`)
-  ].join('');
-
-  const childBlock = (child, i) => `<div class="child-block">
-    <div class="child-row">
-      <label class="field"><span>Child ${i + 1} name</span>
-        <input id="name-${child.id}" value="${esc(child.nickname)}" placeholder="e.g. Mia" autocomplete="off"></label>
-      <label class="field"><span>Age</span><select id="age-${child.id}">${ageOptions(child.age)}</select></label>
-      ${draft.children.length > 1 ? `<button type="button" class="remove-child" data-remove="${child.id}" aria-label="Remove child ${i + 1}">×</button>` : ''}
-    </div>
-    <fieldset class="goal-set">
-      <legend>What would you like help with for this child?</legend>
-      <div class="goal-grid">
-        ${GOAL_OPTIONS.map(([id, label, tone]) => `<label class="goal-option tone-${tone}">
-          <input type="checkbox" name="goal-${child.id}" value="${id}" ${child.goals.includes(id) ? 'checked' : ''}
-            ${id === 'other' ? `data-other="${child.id}"` : ''}><span>${label}</span></label>`).join('')}
-      </div>
-      <label class="field other-goal" id="other-wrap-${child.id}" ${child.goals.includes('other') ? '' : 'hidden'}>
-        <span>What else would you like help with?</span>
-        <input id="other-${child.id}" maxlength="120" value="${esc(child.other_goal)}" placeholder="e.g. Potty training"></label>
-    </fieldset>
-  </div>`;
-
-  return `<div class="signup">
-    <div class="signup-intro">
-      ${paal('paal-lg', true)}
-      <p class="eyebrow">${editing ? 'Your family' : 'Welcome to paal'}</p>
-      <h1>${editing ? 'Edit your family.' : 'Let’s get to know your family.'}</h1>
-      <p class="muted">A few quick questions so PAAL can suggest ideas that fit you. Everything stays on this device.</p>
-    </div>
-
-    <form id="signup-form" class="card signup-form" novalidate>
-      <div id="form-errors" class="form-errors" tabindex="-1" hidden></div>
-
-      <div class="form-row">
-        <label class="field"><span>Your name</span>
-          <input id="parent-name" value="${esc(draft.display_name)}" placeholder="e.g. Andres" autocomplete="given-name"></label>
-        <label class="field"><span>Family name</span>
-          <input id="family-name" value="${esc(draft.family_name)}" maxlength="80" placeholder="e.g. The Rodriguez family"></label>
-      </div>
-
-      <fieldset>
-        <legend>Your children</legend>
-        <p class="hint">For each child, choose as many areas as you like.</p>
-        ${draft.children.map(childBlock).join('')}
-        <button type="button" id="add-child" class="link-btn">+ Add another child</button>
-      </fieldset>
-
-      <div class="form-actions">
-        ${editing ? '<button type="button" id="cancel-edit" class="btn ghost">Cancel</button>' : ''}
-        <button type="submit" class="btn primary">${editing ? 'Save changes' : 'Start with PAAL'}</button>
-      </div>
-    </form>
-  </div>`;
-}
-
-function readDraft() {
-  draft.display_name = $('#parent-name').value.trim();
-  draft.family_name = $('#family-name').value.trim();
-  draft.children = draft.children.map(c => {
-    const age = $(`#age-${c.id}`).value;
-    return {
-      ...c,
-      nickname: $(`#name-${c.id}`).value.trim(),
-      age: age === '' ? '' : Number(age),
-      goals: [...document.querySelectorAll(`input[name="goal-${c.id}"]:checked`)].map(input => input.value),
-      other_goal: $(`#other-${c.id}`).value.trim()
-    };
-  });
-}
-
-function signupErrors(form) {
-  const errors = [];
-  if (!form.display_name) errors.push('Add your name.');
-  if (!form.family_name) errors.push('Add a family name.');
-  form.children.forEach((c, i) => {
-    const label = c.nickname || `child ${i + 1}`;
-    if (!c.nickname) errors.push(`Add a name for child ${i + 1}.`);
-    if (c.age === '') errors.push(`Choose an age for ${label}.`);
-    if (!c.goals.length) errors.push(`Choose at least one thing PAAL can help with for ${label}.`);
-    if (c.goals.includes('other') && !c.other_goal) errors.push(`Describe the “something else” for ${label}.`);
-  });
-  return errors;
-}
-
-function bindSignup() {
-  $('#add-child').onclick = () => {
-    readDraft();
-    draft.children.push(newChild());
-    render();
-    $(`#name-${draft.children.at(-1).id}`).focus();
-  };
-
-  document.querySelectorAll('[data-remove]').forEach(button => {
-    button.onclick = () => {
-      readDraft();
-      draft.children = draft.children.filter(c => c.id !== button.dataset.remove);
-      render();
-    };
-  });
-
-  // "Something else" shows its text box without redrawing the form
-  document.querySelectorAll('[data-other]').forEach(box => {
-    box.onchange = () => {
-      $(`#other-wrap-${box.dataset.other}`).hidden = !box.checked;
-      if (box.checked) $(`#other-${box.dataset.other}`).focus();
-    };
-  });
-
-  const cancel = $('#cancel-edit');
-  if (cancel) cancel.onclick = () => { location.hash = '#home'; };
-
-  $('#signup-form').onsubmit = event => {
-    event.preventDefault();
-    readDraft();
-    const errors = signupErrors(draft);
-    const box = $('#form-errors');
-    if (errors.length) {
-      box.innerHTML = `<p>Almost there! Please check:</p><ul>${errors.map(e => `<li>${esc(e)}</li>`).join('')}</ul>`;
-      box.hidden = false;
-      box.focus();
-      return;
-    }
-    const isNew = !state.family;
-    state.profile = { display_name: draft.display_name };
-    state.family = {
-      name: draft.family_name,
-      children: draft.children.map(c => ({ ...c, other_goal: c.goals.includes('other') ? c.other_goal : '' }))
-    };
-    pruneCare();
-    save();
-    location.hash = '#home';
-    toast(isNew ? `Welcome to PAAL, ${state.profile.display_name}!` : 'Family details saved');
-  };
-}
-
-
-/* Home */
-
-// A ring split into one colored slice per lesson; slices fill in as lessons are completed.
-function progressRing() {
-  const slice = 360 / LESSONS.length;
-  const gap = 3;
-  const stops = LESSONS.map((lesson, i) => {
-    const start = i * slice, end = start + slice - gap;
-    const color = isDone(lesson.id) ? TONE_COLORS[lesson.tone] : '#efe9e2';
-    return `${color} ${start}deg ${end}deg, transparent ${end}deg ${start + slice}deg`;
-  });
-  return `<div class="ring" style="background: conic-gradient(${stops.join(', ')})">
-    <div class="ring-center"><strong>${doneCount()}</strong><span>of ${LESSONS.length}</span></div>
-  </div>`;
-}
-
-function progressMessage(done, total) {
-  if (done === 0) return 'You haven’t started any lessons yet. The first one takes about 4 minutes.';
-  if (done === total) return 'You completed every lesson. Amazing work!';
-  if (done / total >= 0.5) return 'More than halfway there. Keep going!';
-  return 'Great start! Every lesson adds a new idea to your toolbox.';
-}
-
-// Today's care blocks for every child, earliest first
-function todaysBlocks() {
-  return state.care.blocks
-    .filter(b => b.care_date === todayKey())
-    .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
-}
-
-function childName(id) {
-  return familyKids().find(c => c.id === id)?.nickname || '';
-}
-
-// One card per saved idea, with the kids it's saved for and a "How did it go?" check-in
-const FEEDBACK_RESULTS = ['Helped', 'Partly', "Didn't fit"]; // exact values allowed by the database
-
-function savedIdeasSection() {
-  const ideaIds = [...new Set(state.saved_ideas.map(s => s.idea_id))];
-  if (!ideaIds.length) return '';
-  return `<section>
-    <h2 class="section-title">Saved ideas</h2>
-    <div class="saved-grid">
-      ${ideaIds.map(ideaId => {
-        const idea = QUICK_IDEAS.find(i => i.id === ideaId);
-        if (!idea) return '';
-        const names = state.saved_ideas.filter(s => s.idea_id === ideaId).map(s => childName(s.child_id)).filter(Boolean);
-        const last = state.idea_feedback.filter(f => f.idea_id === ideaId).at(-1);
-        return `<article class="card saved-card">
-          <div class="saved-head"><h3>${esc(idea.title)}</h3><span class="for-kids">for ${esc(listNames(names))}</span></div>
-          <p>${esc(idea.how)}</p>
-          <div class="feedback" role="group" aria-label="How did ${esc(idea.title)} go?">
-            <span>How did it go?</span>
-            ${FEEDBACK_RESULTS.map(result => `<button type="button" class="chip" data-feedback="${ideaId}" data-result="${result}"
-              aria-pressed="${last?.result === result}">${result}</button>`).join('')}
-          </div>
-          <div class="saved-foot">
-            <span class="muted">${last ? `Last check-in: ${esc(last.result)} · ${new Date(last.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : ''}</span>
-            <button type="button" class="link-btn danger" data-unsave="${ideaId}">Remove</button>
-          </div>
-        </article>`;
-      }).join('')}
-    </div>
-  </section>`;
-}
-
-function bindHome() {
-  document.querySelectorAll('[data-feedback]').forEach(button => {
-    button.onclick = () => {
-      const ideaId = button.dataset.feedback;
-      const now = new Date().toISOString();
-      // One feedback row per child the idea is saved for
-      state.saved_ideas.filter(s => s.idea_id === ideaId).forEach(s => state.idea_feedback.push(
-        { id: uid('feedback'), child_id: s.child_id, idea_id: ideaId, result: button.dataset.result, note: '', created_at: now }));
-      save();
-      render();
-      toast('Thanks! Noted how it went.');
-    };
-  });
-  document.querySelectorAll('[data-unsave]').forEach(button => {
-    button.onclick = () => {
-      state.saved_ideas = state.saved_ideas.filter(s => s.idea_id !== button.dataset.unsave);
-      save();
-      render();
-      toast('Idea removed');
-    };
-  });
-}
-
-function homeScreen() {
-  const kids = familyKids();
-  const next = LESSONS.find(l => !isDone(l.id));
-  // Each tip once, tagged with the kids who need it
-  const tips = STRUGGLES
-    .map(s => ({ s, names: kids.filter(c => c.goals.includes(s.id)).map(c => c.nickname) }))
-    .filter(t => t.names.length);
-  const otherGoals = kids.filter(c => c.goals.includes('other') && c.other_goal);
-  const blocks = todaysBlocks();
-  const nextBlock = blocks.find(b => b.starts_at >= new Date().toTimeString().slice(0, 5)) || blocks[0];
-
-  return `
-    <header class="page-head">
-      <div><p class="eyebrow">${esc(state.family.name)}</p><h1>Hi, ${esc(state.profile.display_name)}.</h1></div>
-      <a class="btn ghost" href="#edit">Edit family</a>
-    </header>
-
-    <section class="children-grid" aria-label="Your children">
-      ${kids.map((c, i) => `<article class="child-card tone-${CHILD_TONES[i % CHILD_TONES.length]}">
-        ${kid(CHILD_TONES[i % CHILD_TONES.length], c.age, '', i)}
-        <div><h2>${esc(c.nickname)}</h2><p>${ageLabel(c.age)}</p></div>
-      </article>`).join('')}
-    </section>
-
-    <a class="card talk-card" href="#paal">
-      ${paal('paal-md', true)}
-      <div>
-        <h2>Talk to PAAL</h2>
-        <p>Describe what’s going on with ${esc(childNames())} and get ideas grounded in research.</p>
-      </div>
-      <span class="btn primary">Start a chat</span>
-    </a>
-
-    <div class="home-grid">
-      <section class="card progress-card">
-        ${progressRing()}
-        <div class="progress-copy">
-          <h2>Your learning</h2>
-          <p class="muted">${progressMessage(doneCount(), LESSONS.length)}</p>
-          <ul class="lesson-dots">
-            ${LESSONS.map(l => `<li><a class="dot tone-${l.tone} ${isDone(l.id) ? 'done' : ''}" href="#learn/${l.id}"
-              title="${esc(l.title)}${isDone(l.id) ? ' (completed)' : ''}"><span class="sr-only">${esc(l.title)}</span></a></li>`).join('')}
-          </ul>
-          <a class="btn primary" href="#learn${next ? '/' + next.id : ''}">${next ? 'Next lesson' : 'Review lessons'}</a>
-        </div>
-      </section>
-
-      <section class="card care-card">
-        <span class="care-icon" aria-hidden="true">${ICONS.care}</span>
-        <h2>Schedule care</h2>
-        <p class="muted">${blocks.length
-          ? `${blocks.length} care block${blocks.length > 1 ? 's' : ''} today. Next: <strong>${formatTime(nextBlock.starts_at)} · ${esc(nextBlock.title)}</strong>
-             for ${esc(childName(nextBlock.child_id))}${nextBlock.assigned_to ? ` with ${esc(caregiverName(nextBlock.assigned_to))}` : ''}.`
-          : 'Nothing scheduled for today yet. Plan pickups, naps and handoffs with the people who help you.'}</p>
-        <a class="btn primary" href="#care">Schedule care</a>
-      </section>
-    </div>
-
-    ${savedIdeasSection()}
-
-    <section>
-      <h2 class="section-title">PAAL’s tips for you</h2>
-      <div class="tips-grid">
-        ${tips.map(({ s, names }) => `<article class="card tip-card tone-${s.tone}">
-          <span class="tag">${s.label}</span> <span class="for-kids">for ${esc(listNames(names))}</span>
-          <h3>${s.title}</h3>
-          <p class="method">${s.method}</p>
-          <p>${s.summary}</p>
-          <a href="#learn/${s.lessonId}">Read the lesson →</a>
-        </article>`).join('')}
-        ${otherGoals.map(c => `<article class="card tip-card tone-pink">
-          <span class="tag">Something else</span> <span class="for-kids">for ${esc(c.nickname)}</span>
-          <h3>${esc(c.other_goal)}</h3>
-          <p>PAAL doesn’t have a prepared, research-based answer for this yet. Describe what’s going on in the chat and PAAL will share what it can.</p>
-          <a href="#paal">Ask PAAL →</a>
-        </article>`).join('')}
-      </div>
-    </section>`;
-}
-
-
-/* Learn */
-
-function learnScreen() {
-  const done = doneCount(), total = LESSONS.length, pct = Math.round(done / total * 100);
-  return `
-    <header class="page-head"><div><p class="eyebrow">Learn</p><h1>Lessons</h1></div></header>
-
-    <section class="card progress">
-      <div class="progress-label"><span>${done} of ${total} lessons completed</span><span>${pct}%</span></div>
-      <div class="progress-track" role="progressbar" aria-label="Lessons completed"
-        aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${done}">
-        <div class="progress-fill" style="width: ${pct}%"></div>
-      </div>
-    </section>
-
-    <div class="lesson-grid">
-      ${LESSONS.map(l => `<a class="card lesson-card tone-${l.tone}" href="#learn/${l.id}">
-        <div class="lesson-art">${lessonArt(l)}${isDone(l.id) ? '<span class="done-badge">✓</span>' : ''}</div>
-        <div class="lesson-copy">
-          <h2>${l.title}</h2>
-          <p class="muted">${l.teaser}</p>
-          <div class="lesson-foot">
-            <span>${l.time}</span>
-            <span class="status ${isDone(l.id) ? 'done' : ''}">${isDone(l.id) ? '✓ Completed' : 'Start →'}</span>
-          </div>
-        </div>
-      </a>`).join('')}
-    </div>`;
-}
-
-function lessonScreen(lesson) {
-  const done = isDone(lesson.id);
-  const body = content => Array.isArray(content)
-    ? `<ol>${content.map(step => `<li>${step}</li>`).join('')}</ol>`
-    : `<p>${content}</p>`;
-
-  return `<article class="lesson tone-${lesson.tone}">
-    <a class="back" href="#learn">← All lessons</a>
-    <div class="lesson-hero">${lessonArt(lesson)}</div>
-    <p class="eyebrow">${lesson.time} read</p>
-    <h1>${lesson.title}</h1>
-    ${lesson.sections.map(([heading, content]) => `<section><h2>${heading}</h2>${body(content)}</section>`).join('')}
-    <section class="sources">
-      <h2>Sources</h2>
-      <ul>${lesson.sources.map(s => `<li><a href="${s.url}" target="_blank" rel="noopener">${s.title}</a> · ${s.publisher}</li>`).join('')}</ul>
-    </section>
-    <button id="toggle-complete" class="btn ${done ? 'ghost' : 'primary'}">${done ? '✓ Completed · mark as not done' : 'Mark as complete'}</button>
-  </article>`;
-}
-
-function bindLesson(lesson) {
-  $('#toggle-complete').onclick = () => {
-    state.completed = isDone(lesson.id)
-      ? state.completed.filter(id => id !== lesson.id)
-      : [...state.completed, lesson.id];
-    save();
-    render();
-    if (isDone(lesson.id)) toast(`Lesson complete! ${doneCount()} of ${LESSONS.length} done.`);
-  };
-}
-
-
-/* Care
-   Ported from Lili's Care page (her commit fcd8050) and rewritten in this file's
-   style: care blocks, handoff updates, help requests, caregiver permissions and a
-   shareable caregiver guide. It is a local demo: nothing is sent to anyone.
-   Data follows her Supabase tables (see STATE). The "family toolkit" permission
-   covers saved ideas. */
-
-let editingBlockId = null; // the care block being edited, if any
-
-const uid = prefix => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-
-// '2026-11-03' for today, in local time
-function todayKey(date = new Date()) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
-
-// '15:30' -> '3:30 PM'
-function formatTime(hhmm) {
-  if (!hhmm) return '';
-  const [h, m] = hhmm.split(':').map(Number);
-  return new Date(2000, 0, 1, h, m).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-}
-
-function activeChild() {
-  const kids = familyKids();
-  return kids.find(c => c.id === state.activeChildId) || kids[0];
-}
-
-function caregiverName(id) {
-  return state.care.caregivers.find(p => p.id === id)?.display_name || 'no one assigned';
-}
-
-function canView(caregiverId, childId, scope) {
-  return state.care.permissions.some(r => r.caregiver_id === caregiverId && r.child_id === childId && r[`can_view_${scope}`]);
-}
-
-// Caregivers allowed to see `scope` for this child (optionally only the assigned one)
-function carePeople(scope, childId, assignedId = '') {
-  return state.care.caregivers.filter(p => canView(p.id, childId, scope) && (!assignedId || p.id === assignedId));
-}
-
-function careAudience(scope, childId, assignedId = '') {
-  const people = carePeople(scope, childId, assignedId);
-  return people.length ? people.map(p => esc(p.display_name)).join(', ') : 'No caregivers selected';
-}
-
-// The form shows one set of permissions per caregiver; the data keeps one row per child
-function caregiverChildIds(caregiverId) {
-  return state.care.permissions.filter(r => r.caregiver_id === caregiverId).map(r => r.child_id);
-}
-
-function caregiverScopes(caregiverId) {
-  return CARE_SCOPES.map(([s]) => s).filter(s => state.care.permissions.some(r => r.caregiver_id === caregiverId && r[`can_view_${s}`]));
-}
-
-function setPermissions(caregiverId, childIds, scopes) {
-  state.care.permissions = [
-    ...state.care.permissions.filter(r => r.caregiver_id !== caregiverId),
-    ...childIds.map(childId => permissionRow(caregiverId, childId, scopes))
-  ];
-}
-
-// After Edit family: drop everything that belonged to children who were removed
-function pruneCare() {
-  const ids = familyKids().map(c => c.id);
-  const keep = item => ids.includes(item.child_id);
-  for (const key of ['blocks', 'updates', 'requests', 'permissions']) state.care[key] = state.care[key].filter(keep);
-  state.saved_ideas = state.saved_ideas.filter(keep);
-  state.idea_feedback = state.idea_feedback.filter(keep);
-  for (const id of Object.keys(state.guides)) if (!ids.includes(id)) delete state.guides[id];
-}
-
-function guideOf(child) {
-  return state.guides[child.id] || { needs: '', what_helps: '', calming_strategies: '', easy_game: '' };
-}
-
-function caregiverGuide(child) {
-  const guide = guideOf(child);
-  return `A quick guide for caring for ${child.nickname} (${ageLabel(child.age).toLowerCase()})
-
-What they need: ${guide.needs.trim() || 'Not added yet'}
-What already helps: ${guide.what_helps.trim() || 'Not added yet'}
-What helps them feel calm: ${guide.calming_strategies.trim() || 'Not added yet'}
-An easy game to play: ${guide.easy_game.trim() || 'Not added yet'}
-
-Shared by their caregiver. Please check with their family about anything that may have changed.`;
-}
-
-// Help request statuses, as in the database: open → accepted → completed, or open → cancelled
-function requestHeading(r) {
-  if (r.status === 'accepted') return r.accepted_by === 'owner' ? '✓ Accepted in this demo' : `✓ Accepted by ${esc(caregiverName(r.accepted_by))}`;
-  if (r.status === 'completed') return '✓ Done';
-  if (r.status === 'cancelled') return 'Cancelled';
-  return 'Help requested';
-}
-
-function careScreen() {
-  const kids = familyKids();
-  const child = activeChild();
-  const guide = guideOf(child);
-  const blocks = state.care.blocks
-    .filter(b => b.child_id === child.id && b.care_date === todayKey())
-    .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
-  const updates = state.care.updates.filter(u => u.child_id === child.id).slice().reverse();
-  const requests = state.care.requests.filter(r => r.child_id === child.id).slice().reverse();
-  const editing = state.care.blocks.find(b => b.id === editingBlockId);
-  const planPeople = carePeople('plan', child.id);
-  const requestPeople = carePeople('requests', child.id);
-
-  const checks = (name, items, selected) => items.map(([value, label]) =>
-    `<label class="check"><input type="checkbox" name="${name}" value="${esc(value)}" ${selected.includes(value) ? 'checked' : ''}><span>${esc(label)}</span></label>`
-  ).join('');
-  const childItems = kids.map(c => [c.id, c.nickname]);
-
-  const blockList = blocks.length ? blocks.map(b => `<article class="record">
-      <span class="record-time">${formatTime(b.starts_at)}</span>
-      <div class="record-main">
-        <h4>${esc(b.title)}</h4>
-        ${b.details ? `<p>${esc(b.details)}</p>` : ''}
-        <small>Caregiver: ${esc(caregiverName(b.assigned_to))} · Can see this: ${careAudience('plan', child.id, b.assigned_to)}</small>
-      </div>
-      <div class="record-actions">
-        <button type="button" class="link-btn" data-edit-block="${esc(b.id)}">Edit</button>
-        <button type="button" class="link-btn danger" data-delete-block="${esc(b.id)}">Remove</button>
-      </div>
-    </article>`).join('') : '<p class="empty">No care blocks yet. Add who’s doing what and when for today.</p>';
-
-  const updateList = updates.length ? updates.map(u => `<article class="record note">
-      <div class="record-main">
-        <h4>${esc(u.kind)} <time>${new Date(u.created_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</time></h4>
-        <p>${esc(u.body)}</p>
-        <small>Can see this: ${careAudience('updates', child.id)}</small>
-      </div>
-    </article>`).join('') : '<p class="empty">No handoff updates yet. Post a short note for the next caregiver.</p>';
-
-  const requestList = requests.length ? requests.map(r => `<article class="record request-${r.status}">
-      <div class="record-main">
-        <h4>${requestHeading(r)}${r.needed_by ? ` <time>by ${formatTime(r.needed_by)}</time>` : ''}</h4>
-        <p>${esc(r.body)}</p>
-        <small>Can see this: ${careAudience('requests', child.id, r.assigned_to)}</small>
-      </div>
-      <div class="record-actions">
-        ${r.status === 'open' ? `<button type="button" class="btn ghost small" data-request="${esc(r.id)}" data-to="accepted">Accept in demo</button>
-          <button type="button" class="link-btn danger" data-request="${esc(r.id)}" data-to="cancelled">Cancel</button>` : ''}
-        ${r.status === 'accepted' ? `<button type="button" class="btn ghost small" data-request="${esc(r.id)}" data-to="completed">Mark done</button>` : ''}
-      </div>
-    </article>`).join('') : '<p class="empty">No help requests yet. Ask for a hand with a specific part of today.</p>';
-
-  const caregiverList = state.care.caregivers.length ? state.care.caregivers.map(p => `<article class="caregiver">
-      <div class="caregiver-head">
-        <strong>${esc(p.display_name)}</strong>
-        <button type="button" class="link-btn danger" data-remove-caregiver="${esc(p.id)}">Remove</button>
-      </div>
-      <div class="caregiver-groups">
-        <fieldset><legend>Children</legend>${checks('child-' + p.id, childItems, caregiverChildIds(p.id))}</fieldset>
-        <fieldset><legend>Can see</legend>${checks('permission-' + p.id, CARE_SCOPES, caregiverScopes(p.id))}</fieldset>
-      </div>
-    </article>`).join('') + '<button type="button" id="save-permissions" class="btn ghost">Save permissions</button>'
-    : '<p class="empty">No caregivers yet. Add a name to preview who could see what. No account is created and no invitation is sent.</p>';
-
-  const caregiverSelect = (people, selectedId, emptyLabel) => `<select name="caregiver">
-      ${people.map(p => `<option value="${esc(p.id)}" ${p.id === selectedId ? 'selected' : ''}>${esc(p.display_name)}</option>`).join('')}
-      <option value="" ${!people.some(p => p.id === selectedId) ? 'selected' : ''}>${emptyLabel}</option>
-    </select>`;
-
-  return `
-    <header class="page-head">
-      <div>
-        <p class="eyebrow">Care · ${new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</p>
-        <h1>Care, in sync.</h1>
-        <p class="muted lead">Make today’s handoffs easier with a simple care plan, quick updates, and specific requests for help.</p>
-      </div>
-    </header>
-
-    <p class="notice"><strong>Local demo only.</strong> Caregivers and activity are saved only in this browser.
-      No invitation, update or request is sent to anyone.</p>
-
-    <div class="child-tabs" role="group" aria-label="Planning for">
-      <span class="child-tabs-label">Planning for</span>
-      ${kids.map((c, i) => `<button type="button" class="child-tab tone-${CHILD_TONES[i % CHILD_TONES.length]}" data-child="${esc(c.id)}"
-        aria-pressed="${c.id === child.id}">${kid(CHILD_TONES[i % CHILD_TONES.length], c.age, 'kid-xs', i)}<span>${esc(c.nickname)}</span></button>`).join('')}
-    </div>
-
-    <div class="care-grid">
-      <section class="card care-section" id="schedule">
-        <p class="eyebrow">Today’s plan</p>
-        <h2>Care blocks</h2>
-        <p class="muted">Who’s doing what, and when, for ${esc(child.nickname)}.</p>
-        <div class="records">${blockList}</div>
-        <form id="block-form" class="care-form">
-          <h3>${editing ? 'Edit care block' : 'Add a care block'}</h3>
-          <label class="field"><span>What needs to happen?</span>
-            <input name="title" maxlength="100" placeholder="Pickup, snack, quiet time…" value="${esc(editing?.title || '')}"></label>
-          <div class="form-row">
-            <label class="field"><span>Time</span><input type="time" name="time" value="${esc(editing?.starts_at || '')}"></label>
-            <label class="field"><span>Caregiver</span>${caregiverSelect(planPeople, editing?.assigned_to, 'Not assigned')}</label>
-          </div>
-          <label class="field"><span>Handoff details (optional)</span>
-            <textarea name="details" rows="2" maxlength="400" placeholder="Anything the next caregiver should know?">${esc(editing?.details || '')}</textarea></label>
-          <p class="audience">Can see the plan: ${planPeople.length ? planPeople.map(p => esc(p.display_name)).join(', ') : 'no caregivers have care-plan access yet'}</p>
-          <div class="form-actions">
-            ${editing ? '<button type="button" id="cancel-block" class="btn ghost">Cancel</button>' : ''}
-            <button type="submit" class="btn primary">${editing ? 'Save changes' : 'Add to today’s plan'}</button>
-          </div>
-        </form>
-      </section>
-
-      <section class="card care-section">
-        <p class="eyebrow">A useful handoff</p>
-        <h2>Post an update</h2>
-        <p class="muted">Leave a brief note about what happened or what helped.</p>
-        <form id="update-form" class="care-form">
-          <label class="field"><span>Update type</span>
-            <select name="kind"><option>Handoff note</option><option>What helped</option><option>Heads-up</option></select></label>
-          <label class="field"><span>Update</span>
-            <textarea name="text" rows="3" maxlength="500" placeholder="A short, practical update for the next caregiver…"></textarea></label>
-          <p class="audience">Can see updates: ${careAudience('updates', child.id)}</p>
-          <div class="form-actions"><button type="submit" class="btn primary">Post update</button></div>
-        </form>
-        <h3 class="records-title">Recent updates</h3>
-        <div class="records">${updateList}</div>
-      </section>
-
-      <section class="card care-section">
-        <p class="eyebrow">Ask for a hand</p>
-        <h2>Request help</h2>
-        <p class="muted">Describe one concrete task someone could take on.</p>
-        <form id="request-form" class="care-form">
-          <label class="field"><span>What would help?</span>
-            <textarea name="text" rows="2" maxlength="300" placeholder="Could someone handle pickup today?"></textarea></label>
-          <div class="form-row">
-            <label class="field"><span>By when?</span><input type="time" name="time"></label>
-            <label class="field"><span>Ask a caregiver</span>${caregiverSelect(requestPeople, '', 'No one specific')}</label>
-          </div>
-          <p class="audience">Can see requests: ${careAudience('requests', child.id)}</p>
-          <div class="form-actions"><button type="submit" class="btn primary">Post request</button></div>
-        </form>
-        <h3 class="records-title">Help requests</h3>
-        <div class="records">${requestList}</div>
-      </section>
-
-      <section class="card care-section">
-        <p class="eyebrow">Who helps</p>
-        <h2>Caregivers & permissions</h2>
-        <p class="muted">Choose which child and information each caregiver would be allowed to see.</p>
-        <div class="records">${caregiverList}</div>
-        <form id="caregiver-form" class="care-form">
-          <h3>Add a caregiver</h3>
-          <label class="field"><span>Caregiver name</span><input name="name" maxlength="60" placeholder="For example, Grandma Jo"></label>
-          <fieldset><legend>Children they may see</legend><div class="check-grid">${checks('children', childItems, kids.map(c => c.id))}</div></fieldset>
-          <fieldset><legend>Information they may see</legend><div class="check-grid">${checks('permissions', CARE_SCOPES, CARE_SCOPES.map(([s]) => s))}</div></fieldset>
-          <div class="form-actions"><button type="submit" class="btn primary">Add caregiver</button></div>
-        </form>
-      </section>
-
-      <section class="card care-section care-guide">
-        <p class="eyebrow">Made to share</p>
-        <h2>A quick guide for caregivers</h2>
-        <p class="muted">Share what helps ${esc(child.nickname)} feel supported, wherever they are.</p>
-        <div class="guide-grid">
-          <form id="guide-form" class="care-form">
-            <label class="field"><span>What they need</span>
-              <textarea name="needs" rows="2" maxlength="400" placeholder="Allergies, routines, comfort items…">${esc(guide.needs)}</textarea></label>
-            <label class="field"><span>What already helps</span>
-              <textarea name="what_helps" rows="2" maxlength="400" placeholder="Approaches that already work for them…">${esc(guide.what_helps)}</textarea></label>
-            <label class="field"><span>What helps them feel calm</span>
-              <textarea name="calming_strategies" rows="2" maxlength="400" placeholder="A quiet space, a familiar song…">${esc(guide.calming_strategies)}</textarea></label>
-            <label class="field"><span>An easy game to play</span>
-              <input name="easy_game" maxlength="200" placeholder="I spy, building blocks…" value="${esc(guide.easy_game)}"></label>
-            <div class="form-actions"><button type="submit" class="btn ghost">Save guide</button></div>
-          </form>
-          <div class="guide-preview">
-            <label class="field"><span>Preview the message</span>
-              <textarea id="guide-text" rows="9" readonly>${esc(caregiverGuide(child))}</textarea></label>
-            <div class="form-actions">
-              <button type="button" id="copy-guide" class="btn ghost">Copy guide</button>
-              <button type="button" id="share-guide" class="btn primary">Share guide ↗</button>
-            </div>
-            <p class="audience">Only share with people you trust. Sending it doesn’t sync later changes.</p>
-          </div>
-        </div>
-      </section>
-    </div>`;
-}
-
-async function copyGuide() {
-  const field = $('#guide-text');
-  try {
-    await navigator.clipboard.writeText(field.value);
-    toast('Caregiver guide copied');
-  } catch {
-    field.focus();
-    field.select();
-    toast('Guide selected. Copy it to share with a caregiver.');
-  }
-}
-
-function bindCare() {
-  const child = activeChild();
-  const formData = id => new FormData($(id));
-  const done = message => { save(); render(); toast(message); };
-
-  document.querySelectorAll('[data-child]').forEach(button => {
-    button.onclick = () => { state.activeChildId = button.dataset.child; editingBlockId = null; save(); render(); };
-  });
-
-  $('#block-form').onsubmit = event => {
-    event.preventDefault();
-    const form = formData('#block-form');
-    const title = String(form.get('title')).trim(), time = String(form.get('time'));
-    if (!title || !time) { toast('Add a care task and a time first.'); return; }
-    const existing = state.care.blocks.find(b => b.id === editingBlockId);
-    const block = { title, starts_at: time, details: String(form.get('details')).trim(), assigned_to: String(form.get('caregiver')) };
-    if (existing) Object.assign(existing, block);
-    else state.care.blocks.push({ id: uid('block'), child_id: child.id, care_date: todayKey(), created_at: new Date().toISOString(), ...block });
-    editingBlockId = null;
-    done(existing ? 'Care block updated' : 'Added to today’s plan');
-  };
-  const cancel = $('#cancel-block');
-  if (cancel) cancel.onclick = () => { editingBlockId = null; render(); };
-  document.querySelectorAll('[data-edit-block]').forEach(button => {
-    button.onclick = () => { editingBlockId = button.dataset.editBlock; render(); $('#block-form').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
-  });
-  document.querySelectorAll('[data-delete-block]').forEach(button => {
-    button.onclick = () => {
-      state.care.blocks = state.care.blocks.filter(b => b.id !== button.dataset.deleteBlock);
-      if (editingBlockId === button.dataset.deleteBlock) editingBlockId = null;
-      done('Care block removed');
-    };
-  });
-
-  $('#update-form').onsubmit = event => {
-    event.preventDefault();
-    const form = formData('#update-form');
-    const text = String(form.get('text')).trim();
-    if (!text) { toast('Write a short update first.'); return; }
-    state.care.updates.push({ id: uid('update'), child_id: child.id, kind: String(form.get('kind')), body: text, created_at: new Date().toISOString() });
-    done('Update saved in this browser. No one was notified.');
-  };
-
-  $('#request-form').onsubmit = event => {
-    event.preventDefault();
-    const form = formData('#request-form');
-    const text = String(form.get('text')).trim();
-    if (!text) { toast('Describe what help would be useful.'); return; }
-    state.care.requests.push({ id: uid('request'), child_id: child.id, body: text, needed_by: String(form.get('time')),
-      assigned_to: String(form.get('caregiver')), status: 'open', accepted_by: '', accepted_at: '', created_at: new Date().toISOString() });
-    done('Request saved in this browser. No one was notified.');
-  };
-  document.querySelectorAll('[data-request]').forEach(button => {
-    button.onclick = () => {
-      const request = state.care.requests.find(r => r.id === button.dataset.request);
-      if (!request) return;
-      request.status = button.dataset.to;
-      if (request.status === 'accepted') {
-        request.accepted_by = request.assigned_to || 'owner'; // 'owner' = the parent using this demo
-        request.accepted_at = new Date().toISOString();
-      }
-      done({ accepted: 'Marked accepted in this demo', completed: 'Marked done', cancelled: 'Request cancelled' }[request.status]);
-    };
-  });
-
-  $('#caregiver-form').onsubmit = event => {
-    event.preventDefault();
-    const form = formData('#caregiver-form');
-    const name = String(form.get('name')).trim();
-    const childIds = form.getAll('children').map(String), scopes = form.getAll('permissions').map(String);
-    if (!name) { toast('Add a caregiver name first.'); return; }
-    if (!childIds.length || !scopes.length) { toast('Choose at least one child and one thing they can see.'); return; }
-    const id = uid('caregiver');
-    state.care.caregivers.push({ id, display_name: name });
-    setPermissions(id, childIds, scopes);
-    done(`${name} added. No invitation was sent.`);
-  };
-  const savePermissions = $('#save-permissions');
-  if (savePermissions) savePermissions.onclick = () => {
-    const checked = name => [...document.querySelectorAll(`[name="${CSS.escape(name)}"]:checked`)].map(input => input.value);
-    state.care.caregivers.forEach(p => setPermissions(p.id, checked('child-' + p.id), checked('permission-' + p.id)));
-    done('Permissions saved in this browser');
-  };
-  document.querySelectorAll('[data-remove-caregiver]').forEach(button => {
-    button.onclick = () => {
-      const id = button.dataset.removeCaregiver;
-      state.care.caregivers = state.care.caregivers.filter(p => p.id !== id);
-      state.care.permissions = state.care.permissions.filter(r => r.caregiver_id !== id);
-      done('Caregiver removed');
-    };
-  });
-
-  $('#guide-form').onsubmit = event => {
-    event.preventDefault();
-    const form = formData('#guide-form');
-    state.guides[child.id] = Object.fromEntries(
-      ['needs', 'what_helps', 'calming_strategies', 'easy_game'].map(key => [key, String(form.get(key)).trim()]));
-    done('Caregiver guide saved');
-  };
-  $('#copy-guide').onclick = copyGuide;
-  $('#share-guide').onclick = async () => {
-    if (typeof navigator.share !== 'function') { copyGuide(); return; }
-    try { await navigator.share({ title: `Care guide for ${child.nickname}`, text: $('#guide-text').value }); }
-    catch (error) { if (error.name !== 'AbortError') toast('Could not open sharing. Try copying the guide instead.'); }
-  };
-}
-
-
-/* PAAL (chat) */
-
-function paalScreen() {
-  const kids = familyKids();
-  const firstName = kids[0]?.nickname || 'my child';
-  // One chip per support area, using the name of the first child who needs it
-  const prompts = [
-    `Give me quick screen-free ideas to distract ${firstName} right now`,
-    `We’re stuck waiting. Quick ideas to keep ${firstName} busy?`,
-    ...STRUGGLES.map(s => [s, kids.find(c => c.goals.includes(s.id))])
-      .filter(([, child]) => child)
-      .map(([s, child]) => capitalize(s.example.replace('{child}', child.nickname)))
-  ];
-
-  return `<div class="paal-page">
-    <p class="kids-line">Here for
-      ${kids.map((c, i) => `<span class="kid-chip tone-${CHILD_TONES[i % CHILD_TONES.length]}">${esc(c.nickname)}</span>`).join('')}
-    </p>
-
-    <div class="speech">Hi, I’m PAAL! I can help you with anything you need.</div>
-
-    <div class="chat-wrap">
-      <div class="peeker">${paal('paal-peek')}</div>
-      <span class="hand left" aria-hidden="true"></span><span class="hand right" aria-hidden="true"></span>
-
-      <section class="card chat-card" aria-label="Chat with PAAL">
-        <div id="chat-log" class="chat-log" aria-live="polite">${state.chat.map(messageMarkup).join('')}</div>
-        ${state.chat.length ? '' : `<div class="chips"><span class="chips-label">Try:</span>
-          ${prompts.map(text => `<button type="button" class="chip" data-prompt="${esc(text)}">${esc(text)}</button>`).join('')}</div>`}
-        <form id="chat-form" class="chat-form">
-          <label for="chat-input" class="sr-only">Describe what’s going on</label>
-          <textarea id="chat-input" rows="2" placeholder="Describe what’s going on…"></textarea>
-          <button class="btn primary" type="submit">Send</button>
-        </form>
-      </section>
-    </div>
-
-    <p class="fine-print">PAAL shares general, research-based ideas, not medical advice.
-      ${state.chat.length ? '<button id="clear-chat" class="link-btn">Clear chat</button>' : ''}</p>
-
-    <section class="activities">
-      <h2 class="section-title">Guided by PAAL</h2>
-      <p class="muted">Press start and PAAL will walk you through it, step by step.</p>
-      <div class="activity-grid">${ACTIVITIES.map(activityCard).join('')}</div>
-    </section>
-  </div>`;
-}
-
-function activityCard(activity) {
-  const runs = state.activityRuns[activity.id] || 0;
-  return `<article class="card activity-card tone-${activity.tone}">
-    <div class="activity-art"><div class="mini-stage"><span class="mini-ring"></span>${paal('paal-md')}</div></div>
-    <div class="activity-copy">
-      <p class="eyebrow">${activity.kind}</p>
-      <h3>${activity.title}</h3>
-      <p>${activity.summary}</p>
-      <p class="method">Based on: ${activity.basedOn}.
-        ${activity.sources.map((s, i) => `<a href="${s.url}" target="_blank" rel="noopener">Source ${i + 1}</a>`).join(' · ')}</p>
-      <div class="activity-foot">
-        <span class="muted">${activity.minutes} min${runs ? ` · done ${runs}×` : ''}</span>
-        <button type="button" class="btn primary" data-activity="${activity.id}">▶ Start</button>
-      </div>
-    </div>
-  </article>`;
-}
-
-
-/* ---------- 5. CHAT ---------- */
-
-function paalBubble(html) {
-  return `<div class="msg-row">${paal('paal-xs')}<div class="msg bot">${html}</div></div>`;
-}
-
-function messageMarkup(message) {
-  return message.from === 'me' ? `<div class="msg me">${esc(message.text)}</div>` : paalBubble(message.html);
-}
-
-const SAFETY = /\b(emergency|danger|abus\w*|suicid\w*|not breathing|unconscious|poison\w*|hurt (him|her|them)sel\w*)\b/;
-
-// Scripted answers: find the topic whose keywords appear most in the message.
-function paalReply(text) {
-  const t = text.toLowerCase();
-  const kids = familyKids();
-  const kid = kids.find(c => c.nickname && t.includes(c.nickname.toLowerCase())) || (kids.length === 1 ? kids[0] : null);
-  let who = kid ? esc(kid.nickname) : 'your child';
-
-  if (SAFETY.test(t)) {
-    return `<p>If anyone might be in danger right now, please call <strong>911</strong> (or your local emergency number) right away.</p>
-      <p>For anything urgent about your child’s health, contact your pediatrician. I’m a prototype and can only share general ideas.</p>`;
-  }
-  if (/^(hi|hello|hey|hola)\b/.test(t) && t.length < 25) {
-    return `<p>Hi ${esc(state.profile.display_name)}! Tell me what’s going on with ${esc(childNames())}: bedtime, screens, big feelings, or anything else, and I’ll share ideas that research says can help.</p>`;
-  }
-  if (/\bthank/.test(t)) {
-    return `<p>You’re welcome! You’re doing a great job by looking for ideas. I’m here whenever you need me.</p>`;
-  }
-
-  let best = null, bestScore = 0;
-  for (const s of STRUGGLES) {
-    const score = (t.match(s.pattern) || []).length;
-    if (score > bestScore) { best = s; bestScore = score; }
-  }
-
-  // "Give me ideas now" wins when it's at least as strong as a topic match
-  const quickScore = (t.match(QUICK) || []).length;
-  if (quickScore && quickScore >= bestScore) return quickIdeasReply(t, kid ? [kid] : kids);
-
-  if (!best) {
-    return `<p>I’m not sure I understood that one yet. I’m a prototype, so right now I know most about
-      <strong>sleep</strong>, <strong>screens</strong>, <strong>tantrums</strong> and <strong>everyday connection</strong>.
-      Could you tell me a bit more?</p>`;
-  }
-
-  // No name in the message? Use the child who has this support area, if there's only one
-  if (!kid) {
-    const withGoal = kids.filter(c => c.goals.includes(best.id));
-    if (withGoal.length === 1) who = esc(withGoal[0].nickname);
-  }
-
-  return `<p>${best.intro.replace('{child}', who)}</p>
-    <p><strong>${best.title}</strong><br><small>${best.method}</small></p>
-    <ol>${best.steps.map(step => `<li>${step}</li>`).join('')}</ol>
-    <p class="chat-links"><a href="#learn/${best.lessonId}">Open the full lesson</a> ·
-      <a href="${best.source.url}" target="_blank" rel="noopener">Source</a></p>`;
-}
-
-const QUICK = /\b(distract\w*|bored\w*|ideas?|quick\w*|right now|something to do|activit\w*|busy|entertain\w*)\b/g;
-const ON_THE_GO = /\b(waiting|wait|car|restaurant|line|store|doctor|plane|airport|queue|stuck)\b/;
-
-// Three random screen-free ideas that fit every child the message is about
-function quickIdeasReply(text, children) {
-  const ages = children.map(c => Number(c.age));
-  const fits = idea => ages.every(a => a >= idea.ages[0] && a <= idea.ages[1]);
-  let pool = QUICK_IDEAS.filter(fits);
-  if (!pool.length) pool = QUICK_IDEAS.filter(idea => ages.some(a => a >= idea.ages[0] && a <= idea.ages[1]));
-  const onTheGo = ON_THE_GO.test(text);
-  if (onTheGo && pool.some(i => i.anywhere)) pool = pool.filter(i => i.anywhere);
-  const picks = pool.sort(() => Math.random() - .5).slice(0, 3);
-  const who = esc(listNames(children.map(c => c.nickname)));
-  const forKids = children.map(c => c.id).join(',');
-
-  return `<p>Here are a few screen-free ideas for ${who} you can start right now${onTheGo ? ', no supplies needed' : ''}:</p>
-    <ul class="idea-list">${picks.map(i => `<li><strong>${i.title}:</strong> ${i.how}
-      <button type="button" class="save-idea" data-save-idea="${i.id}" data-kids="${forKids}">☆ Save</button></li>`).join('')}</ul>
-    <p><small>Tip: offer a choice of two (“${picks[0]?.title} or ${picks[1]?.title}?”). Kids join in more easily when they get to pick.
-      Ask me again for different ideas.</small></p>`;
-}
-
-let replying = false;
-
-function sendMessage(text) {
-  text = text.trim();
-  if (!text || replying) return;
-  state.chat.push({ from: 'me', text });
-  save();
+function bindList(){document.querySelectorAll('#toolkit-list [data-idea]').forEach(b=>b.onclick=()=>selectIdea(b.dataset.idea,'toolkit'));document.querySelectorAll('#toolkit-list [data-save]').forEach(b=>b.onclick=()=>saveIdea(b.dataset.save))}
+document.addEventListener('click',event=>{const readButton=event.target.closest('[data-read-resource]');if(readButton&&!readButton.disabled){const id=Number(readButton.dataset.readResource);if(resources[id]&&!data.readResources.includes(id)){data.readResources.push(id);persist();render();toast('Reading marked for this browser')}}});
+document.addEventListener('click',event=>{const button=event.target.closest('#voice-input');if(!button)return;const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition,status=$('#voice-status'),textarea=$('#concern');if(!Recognition){status.textContent='Voice input is not supported in this browser. You can type instead.';return}if(activeRecognition){activeRecognition.stop();return}const recognition=new Recognition();activeRecognition=recognition;recognition.lang=navigator.language||'en-US';recognition.interimResults=true;recognition.maxAlternatives=1;let startingText='';recognition.onstart=()=>{startingText=textarea.value.trim();button.textContent='Stop listening';button.setAttribute('aria-pressed','true');status.textContent='Listening. Your words will appear here.'};recognition.onresult=event=>{const transcript=Array.from(event.results).map(item=>item[0].transcript).join(' ').trim();if(transcript){textarea.value=[startingText,transcript].filter(Boolean).join(' ');status.textContent='Listening. You can edit your words as you go.'}};recognition.onerror=error=>{status.textContent=error.error==='not-allowed'?'Microphone access was blocked. Check your browser permissions.':error.error==='no-speech'?'No speech was detected. Try again or type instead.':'Voice input could not start. You can type instead.'};recognition.onend=()=>{if(activeRecognition===recognition)activeRecognition=null;if(button.isConnected){button.textContent='Speak instead';button.setAttribute('aria-pressed','false')}if(status.textContent.startsWith('Listening.'))status.textContent=textarea.value.trim()!==startingText?'Voice input added. Edit or continue when you’re ready.':'No speech detected. You can try again or type instead.'};try{recognition.start()}catch{activeRecognition=null;status.textContent='Voice input could not start. You can type instead.'}});
+document.addEventListener('click',event=>{const childTab=event.target.closest('[data-family-child]');if(childTab){data.family.activeChildId=childTab.dataset.familyChild;persist();render();return}if(event.target.closest('[data-add-family-child]')){familyDraft=structuredClone(data.family);const child=newChild();familyDraft.children.push(child);familyDraft.activeChildId=child.id;page='family-edit';render();document.querySelector(`[name="name-${child.id}"]`)?.focus();return}if(event.target.closest('[data-edit-family]')){navigate('family-edit');return}const ideaButton=event.target.closest('[data-family-idea]');if(ideaButton)selectIdea(ideaButton.dataset.familyIdea,'family')});
+document.addEventListener('click',event=>{if(event.target.closest('[data-share-guide]'))shareCaregiverGuide();if(event.target.closest('[data-copy-guide]'))copyCaregiverGuide()});
+function renderAuth(){
+ const recovery=authMode==='recovery',signup=authMode==='signup';
+ const title=authUnavailable?'Account service unavailable':recovery?'Choose a new password':signup?'Create your account':'Welcome back';
+ const message=authNotice?`<p class="auth-message ${authNoticeType==='success'?'success':''}" role="status">${esc(authNotice)}</p>`:'';
+ $('#app').innerHTML=`<main class="auth-page"><a class="logo auth-logo" href="./" aria-label="Paal home">paal</a><section class="auth-card"><div class="eyebrow">Your family. Your way.</div><h1>${title}</h1><p class="muted">${authUnavailable?'Try again once your connection is restored.':recovery?'Use at least 8 characters for your new password.':signup?'Create an account to access your family space.':'Sign in to continue to your family space.'}</p>${message}${authUnavailable?'<button class="secondary" id="auth-retry" type="button">Reload</button>':`<form id="auth-form">${signup?'<label class="field"><span>Your name</span><input name="name" autocomplete="name" maxlength="80" required></label>':''}<label class="field"><span>Email</span><input id="auth-email" name="email" type="email" autocomplete="email" required></label><label class="field"><span>${recovery?'New password':'Password'}</span><input name="password" type="password" autocomplete="${recovery?'new-password':signup?'new-password':'current-password'}" minlength="8" required></label><button class="primary auth-submit" type="submit">${recovery?'Update password':signup?'Create account':'Sign in'} <span aria-hidden="true">→</span></button></form>${!recovery?`<div class="auth-links">${signup?'Already have an account?':'New to paal?'} <button class="link" id="auth-toggle">${signup?'Sign in':'Create account'}</button></div>`:`<div class="auth-links"><button class="link" id="auth-toggle">Back to sign in</button></div>`}${!signup&&!recovery?'<button class="link auth-forgot" id="auth-forgot">Forgot password?</button>':''}`}<p class="notice auth-privacy">Your account signs you in, but family details are still saved only in this browser. Cloud data sync and caregiver invitations are not connected yet.</p></section></main>`;
+ $('#auth-form')?.addEventListener('submit',async event=>{
+  event.preventDefault();const form=new FormData(event.currentTarget),email=String(form.get('email')||'').trim(),password=String(form.get('password')||'');
+  authNotice='';authNoticeType='error';
+  try{
+   if(recovery){const {error}=await supabaseClient.auth.updateUser({password});if(error)throw error;sessionStorage.removeItem('paal-password-recovery');authNotice='Your password has been updated. You can continue using this page.';authNoticeType='success';authMode='signin'}
+   else if(signup){const name=String(form.get('name')||'').trim();const {data:result,error}=await supabaseClient.auth.signUp({email,password,options:{data:{name},emailRedirectTo:window.location.origin}});if(error)throw error;if(!result.session){authNotice='Check your email for a confirmation link, then return here to sign in.';authNoticeType='success';authMode='signin'}}
+   else{const {error}=await supabaseClient.auth.signInWithPassword({email,password});if(error)throw error}
+  }catch(error){authNotice=error.message||'Authentication failed. Please try again.'}
   render();
-
-  // Show "typing…" for a moment so it feels like a conversation
-  replying = true;
-  $('#chat-log').insertAdjacentHTML('beforeend', paalBubble('<span class="typing"><span></span><span></span><span></span></span>'));
-  scrollChat();
-
-  setTimeout(() => {
-    state.chat.push({ from: 'paal', html: paalReply(text) });
-    replying = false;
-    save();
-    if (currentRoute().page === 'paal') {
-      render();
-      if (!matchMedia('(pointer: coarse)').matches) $('#chat-input').focus(); // don't pop the phone keyboard
-    }
-  }, 700);
+ });
+ $('#auth-retry')?.addEventListener('click',()=>window.location.reload());
+ $('#auth-toggle')?.addEventListener('click',()=>{authMode=signup||recovery?'signin':'signup';authNotice='';renderAuth()});
+ $('#auth-forgot')?.addEventListener('click',async()=>{
+  const email=$('#auth-email').value.trim();if(!email){authNotice='Enter your email address first.';renderAuth();$('#auth-email')?.focus();return}
+  try{const {error}=await supabaseClient.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin});if(error)throw error;authNotice='If an account exists for that email, a password reset link is on its way.';authNoticeType='success'}catch(error){authNotice=error.message||'Could not send the reset link.';authNoticeType='error'}renderAuth()
+ });
 }
-
-function scrollChat() {
-  const log = $('#chat-log');
-  if (log) log.scrollTop = log.scrollHeight;
+function applyAuthSession(session,eventName=''){
+ if(eventName==='PASSWORD_RECOVERY'){sessionStorage.setItem('paal-password-recovery','true');authMode='recovery';authNotice='';}
+ const user=session?.user||null,cached=sessionStorage.getItem('paal-auth-user-id');
+ if(user&&cached!==user.id){sessionStorage.setItem('paal-auth-user-id',user.id);window.location.reload();return}
+ if(!user&&cached){sessionStorage.removeItem('paal-auth-user-id');window.location.reload();return}
+ authUser=user;page=user?(localStorage.getItem(dataStorageKey)?'family':'family-edit'):'auth';render();
 }
-
-function bindChat() {
-  const input = $('#chat-input');
-  scrollChat();
-  $('#chat-form').onsubmit = event => { event.preventDefault(); sendMessage(input.value); };
-  input.onkeydown = event => {
-    if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(input.value); }
-  };
-  document.querySelectorAll('[data-prompt]').forEach(chip => { chip.onclick = () => sendMessage(chip.dataset.prompt); });
-  document.querySelectorAll('[data-activity]').forEach(button => { button.onclick = () => startActivity(button.dataset.activity); });
-
-  // "☆ Save" on PAAL's quick ideas: one saved row per child (family_saved_ideas)
-  const isSaved = (childId, ideaId) => state.saved_ideas.some(s => s.child_id === childId && s.idea_id === ideaId);
-  document.querySelectorAll('[data-save-idea]').forEach(button => {
-    const ideaId = button.dataset.saveIdea;
-    const childIds = button.dataset.kids.split(',').filter(id => familyKids().some(c => c.id === id));
-    const markSaved = () => { button.disabled = true; button.textContent = '★ Saved'; };
-    if (childIds.length && childIds.every(id => isSaved(id, ideaId))) markSaved();
-    button.onclick = () => {
-      const now = new Date().toISOString();
-      childIds.filter(id => !isSaved(id, ideaId)).forEach(childId =>
-        state.saved_ideas.push({ id: uid('saved'), child_id: childId, idea_id: ideaId, created_at: now }));
-      save();
-      markSaved();
-      toast('Saved. You’ll find it on Home.');
-    };
-  });
-  const clear = $('#clear-chat');
-  if (clear) clear.onclick = () => { state.chat = []; save(); render(); };
+async function initializeAuth(){
+ if(!backendConfigured){render();return}
+ $('#app').innerHTML='<main class="auth-page"><p class="muted">Connecting to account service…</p></main>';
+ if(!window.supabase?.createClient){authUnavailable=true;authNotice='Supabase could not load. Check your internet connection and reload.';renderAuth();return}
+ try{
+  supabaseClient=window.supabase.createClient(backendConfig.url,backendConfig.anonKey);
+  supabaseClient.auth.onAuthStateChange((event,session)=>applyAuthSession(session,event));
+  const {data:sessionData,error}=await supabaseClient.auth.getSession();if(error)throw error;
+  applyAuthSession(sessionData.session);
+ }catch(error){authNotice=error.message||'Could not connect to the account service.';renderAuth()}
 }
-
-
-/* Guided activity player: a full-screen, calm view where PAAL leads each step
-   with a timer, a breathing circle and (optionally) a spoken voice. */
-
-let player = null; // { activity, step, left, paused, timer }
-
-function stepLength(step) {
-  return step.breathe ? step.breathe * BREATH_CYCLE : step.secs;
-}
-
-function sayText(step) {
-  return step.say.replace('{child}', childNames() || 'your child');
-}
-
-/* PAAL's voice: real recordings made with Kokoro-82M, an open-source (Apache-2.0)
-   text-to-speech model, using its most natural voice ("Heart"), recorded one
-   step at a time and played 10% slower and deeper for a calm tone.
-   Files: audio/<activity-id>/1.m4a, 2.m4a, … (one per step) plus the breathing
-   guide cue-breath.m4a. If you change a step's text, re-record it (see README). */
-
-let clip = null;    // the step recording that is playing
-let cueClip = null; // a breathing cue that is playing
-
-const AUDIO_VERSION = 3; // bump after re-recording so phones don't play a cached old voice
-const audioPath = (activity, name) => `audio/${activity.id}/${name}.m4a?v=${AUDIO_VERSION}`;
-
-function stopVoice() {
-  for (const audio of [clip, cueClip]) if (audio) audio.pause();
-  clip = cueClip = null;
-}
-
-function pauseVoice(paused) {
-  for (const audio of [clip, cueClip]) {
-    if (audio && !audio.ended) paused ? audio.pause() : audio.play().catch(() => {});
-  }
-}
-
-// Play a step's recording. If it's longer than the step, the step waits for it.
-function playStep(activity, index) {
-  stopVoice();
-  if (!state.voice) return;
-  const audio = new Audio(audioPath(activity, index + 1));
-  audio.onloadedmetadata = () => {
-    if (player && player.activity === activity && player.step === index) {
-      player.left = Math.max(player.left, Math.ceil(audio.duration) + 2);
-    }
-  };
-  audio.play().catch(() => {});
-  clip = audio;
-}
-
-// The spoken breathing guide; skipped while PAAL is still talking. Returns true if it played.
-function playCue(activity, name) {
-  if (!state.voice || (clip && !clip.ended)) return false;
-  cueClip = new Audio(audioPath(activity, 'cue-' + name));
-  cueClip.volume = .85;
-  cueClip.play().catch(() => {});
-  return true;
-}
-
-const clock = secs => `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
-
-// Where we are in a breathing cycle: 0–2s in, 2–3s extra sip, 3–9s out
-function breathCue(step, left) {
-  const elapsed = stepLength(step) - left;
-  const t = elapsed % BREATH_CYCLE;
-  const cue = t < 2 ? 'Breathe in through your nose' : t < 3 ? 'One more little sip in' : 'Slowly out through your mouth';
-  return `${cue} · breath ${Math.min(Math.floor(elapsed / BREATH_CYCLE) + 1, step.breathe)} of ${step.breathe}`;
-}
-
-function startActivity(id) {
-  closeActivity();
-  player = { activity: ACTIVITIES.find(a => a.id === id), step: 0, left: 0, paused: false };
-  document.body.insertAdjacentHTML('beforeend',
-    `<div id="player" class="player tone-${player.activity.tone}" role="dialog" aria-modal="true" aria-label="${player.activity.title}"></div>`);
-  document.body.classList.add('no-scroll');
-  goToStep(0);
-  player.timer = setInterval(tick, 1000);
-}
-
-function goToStep(index) {
-  const steps = player.activity.steps;
-  if (index >= steps.length) { finishActivity(); return; }
-  player.step = index;
-  player.left = stepLength(steps[index]);
-  player.cues = 0;
-  drawPlayer();
-  playStep(player.activity, index);
-}
-
-function drawPlayer() {
-  const { activity, step: index, paused } = player;
-  const step = activity.steps[index];
-  const box = $('#player');
-  box.classList.toggle('paused', paused);
-  box.innerHTML = `
-    <div class="player-top">
-      <span class="eyebrow">${activity.title} · ${activity.kind}</span>
-      <button type="button" class="player-close" id="player-close" aria-label="Close">✕</button>
-    </div>
-    <div class="player-stage ${step.breathe ? 'breathing' : ''}">
-      <span class="breath-ring" style="animation-delay: -${(stepLength(step) - player.left) % BREATH_CYCLE}s"></span>
-      ${paal('paal-lg player-paal', !step.breathe)}
-    </div>
-    <p class="breath-cue" id="breath-cue">${step.breathe ? breathCue(step, player.left) : '&nbsp;'}</p>
-    <h2>${step.title}</h2>
-    <p class="player-say">${esc(sayText(step))}</p>
-    <div class="player-dots" aria-label="Step ${index + 1} of ${activity.steps.length}">
-      ${activity.steps.map((_, i) => `<span class="${i < index ? 'done' : i === index ? 'now' : ''}"></span>`).join('')}
-    </div>
-    <p class="player-time" id="player-time">${clock(player.left)}</p>
-    <div class="player-controls">
-      <button type="button" class="btn ghost" id="player-voice" aria-pressed="${state.voice}">${state.voice ? '🔊 Voice on' : '🔈 Voice off'}</button>
-      <button type="button" class="btn primary" id="player-pause">${paused ? '▶ Resume' : '❚❚ Pause'}</button>
-      <button type="button" class="btn ghost" id="player-next">Next →</button>
-    </div>`;
-
-  $('#player-close').onclick = closeActivity;
-  $('#player-next').onclick = () => goToStep(player.step + 1);
-  $('#player-pause').onclick = () => {
-    player.paused = !player.paused;
-    pauseVoice(player.paused);
-    drawPlayer();
-  };
-  $('#player-voice').onclick = () => {
-    state.voice = !state.voice;
-    save();
-    if (state.voice) playStep(activity, index);
-    else stopVoice();
-    drawPlayer();
-  };
-}
-
-function tick() {
-  if (!player || player.paused || player.done) return;
-  player.left -= 1;
-  if (player.left <= 0) { goToStep(player.step + 1); return; }
-  const step = player.activity.steps[player.step];
-  $('#player-time').textContent = clock(player.left);
-  if (step.breathe) {
-    $('#breath-cue').textContent = breathCue(step, player.left);
-    // Guide the first 3 breaths out loud, then let the parent breathe in quiet
-    const second = (stepLength(step) - player.left) % BREATH_CYCLE;
-    if (second === 0 && player.cues < 3 && playCue(player.activity, 'breath')) player.cues += 1;
-  }
-}
-
-function finishActivity() {
-  const { activity } = player;
-  player.done = true;
-  clearInterval(player.timer);
-  state.activityRuns[activity.id] = (state.activityRuns[activity.id] || 0) + 1;
-  save();
-  $('#player').innerHTML = `
-    <div class="player-top"><span class="eyebrow">${activity.title}</span>
-      <button type="button" class="player-close" id="player-close" aria-label="Close">✕</button></div>
-    <div class="player-stage">${paal('paal-lg player-paal', true)}</div>
-    <h2>Nice work!</h2>
-    <p class="player-say">You’ve done ${activity.title.toLowerCase()} ${state.activityRuns[activity.id]} time${state.activityRuns[activity.id] > 1 ? 's' : ''}. A little every day adds up.</p>
-    <p class="player-sources">Based on: ${activity.sources.map(s => `<a href="${s.url}" target="_blank" rel="noopener">${s.title}</a>`).join(' · ')}</p>
-    <div class="player-controls">
-      <button type="button" class="btn ghost" id="player-again">Do it again</button>
-      <button type="button" class="btn primary" id="player-done">Back to PAAL</button>
-    </div>`;
-  $('#player-close').onclick = closeActivity;
-  $('#player-done').onclick = closeActivity;
-  $('#player-again').onclick = () => startActivity(activity.id);
-}
-
-function closeActivity() {
-  if (!player) return;
-  clearInterval(player.timer);
-  stopVoice();
-  $('#player')?.remove();
-  document.body.classList.remove('no-scroll');
-  player = null;
-  if (currentRoute().page === 'paal') render(); // refresh "done N×"
-}
-
-document.addEventListener('keydown', event => { if (event.key === 'Escape') closeActivity(); });
-
-
-/* ---------- 6. ROUTER ---------- */
-
-// URLs: #home, #learn, #learn/<lesson-id>, #care, #paal, #edit
-// Anyone without a profile sees the sign-up page first.
-function currentRoute() {
-  const [page = '', id = ''] = location.hash.slice(1).split('/');
-  if (!state.family) return { page: 'signup' };
-  if (page === 'learn' && id) return { page: 'lesson', id };
-  if (['home', 'learn', 'care', 'paal', 'edit'].includes(page)) return { page };
-  return { page: 'home' }; // also catches old #family links
-}
-
-const TITLES = { signup: 'Welcome', edit: 'Edit family', home: 'Home', learn: 'Learn', lesson: 'Learn', care: 'Care', paal: 'Talk to PAAL' };
-
-function render() {
-  const route = currentRoute();
-  document.title = `paal · ${TITLES[route.page]}`;
-
-  if (route.page === 'signup' || route.page === 'edit') {
-    if (!draft) startDraft();
-    $('#app').innerHTML = `<div class="signup-page"><span class="logo">paal</span>${signupScreen()}</div>`;
-    bindSignup();
-    return;
-  }
-
-  draft = null;
-  const lesson = route.page === 'lesson' ? LESSONS.find(l => l.id === route.id) : null;
-  const screens = {
-    home: homeScreen,
-    learn: learnScreen,
-    lesson: () => lesson ? lessonScreen(lesson) : learnScreen(),
-    care: careScreen,
-    paal: paalScreen
-  };
-  $('#app').innerHTML = shell(route.page === 'lesson' ? 'learn' : route.page, screens[route.page]());
-
-  $('#reset').onclick = () => {
-    if (!confirm('Reset the demo? This clears your family details, lessons and chat on this device.')) return;
-    try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
-    state = emptyState();
-    location.hash = '';
-    render();
-  };
-  if (lesson) bindLesson(lesson);
-  if (route.page === 'home') bindHome();
-  if (route.page === 'care') bindCare();
-  if (route.page === 'paal') bindChat();
-}
-
-window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
-render();
+initializeAuth();

@@ -95,55 +95,39 @@ This export includes no account credentials, hosting identity, or user-entered
 family data. The owner-connected source repository is separate from your
 new shared repository.
 
-## Supabase backend foundation
+## Supabase account setup
 
 The initial Supabase migration is
 [`supabase/migrations/20261103220000_initial_shared_care.sql`](./supabase/migrations/20261103220000_initial_shared_care.sql).
-It defines accounts, families, child profiles and care guides, caregiver
+It defines profiles, families, child profiles and care guides, caregiver
 permissions, care blocks, handoff updates, help requests, and saved toolkit
-ideas/feedback. Row-level security checks active family membership and the
-per-child permission scopes (`guide`, `plan`, `toolkit`, `updates`, and
-`requests`). Care guide details are stored separately from basic child details
-so guide access does not automatically grant access to care plans or toolkit
-records.
+ideas/feedback, with Row Level Security policies for family membership and
+per-child permissions. The migration also creates a profile when an Auth user
+signs up.
 
-To try the schema, create a Supabase project and run that migration in its SQL
-Editor. The `create_family` database function creates a family and its owner
-membership together; `accept_help_request` atomically accepts an open request
-for the signed-in caregiver. Do not put a Supabase service-role key in the
-browser or in this repository; a public anon/publishable key is intended for
-client use only when paired with these row-level policies.
+To turn on account creation and sign-in:
 
-### How this app's data maps to the schema
+1. Create a Supabase project and run the migration in its SQL Editor.
+2. In **Project Settings → API**, copy the project URL and public anon/publishable
+   key into `url` and `anonKey` in [`dist/supabase-config.js`](./dist/supabase-config.js).
+   These public client values are not passwords. Never use a service-role key
+   in this file or anywhere in browser code.
+3. In **Authentication → URL Configuration**, set the production site URL and
+   allow the local development URL (for example `http://localhost:8000`) and
+   production URL as redirects. Configure email confirmation and SMTP for the
+   experience you want.
+4. Serve the `dist` directory over HTTP (see **Run it**) and reload. With valid
+   configuration, visitors must create an account or sign in before entering
+   the app. The UI also supports password reset.
 
-The app's saved data (`localStorage` key `paal-andres`, version 2) already uses the
-schema's table and column names, so it can be synced without a translation layer:
-
-| App data | Supabase table |
-|---|---|
-| `profile` | `profiles` (`display_name`) |
-| `family` | `families` (`name`) |
-| `family.children` | `family_children` (`nickname`, `age`, `goals`, `other_goal`) |
-| `guides[child_id]` | `child_care_guides` (`needs`, `what_helps`, `calming_strategies`, `easy_game`) |
-| `care.caregivers` | caregiver members (`family_memberships` + `profiles.display_name`) |
-| `care.permissions` | `family_member_child_permissions` (one row per caregiver and child, `can_view_*`) |
-| `care.blocks` | `care_blocks` |
-| `care.updates` | `handoff_updates` |
-| `care.requests` | `help_requests` (`open`, `accepted`, `completed`, `cancelled`) |
-| `saved_ideas` | `family_saved_ideas` (`idea_id` = a quick idea, e.g. `freeze-dance`) |
-| `idea_feedback` | `family_idea_feedback` (`Helped`, `Partly`, `Didn't fit`) |
-
-Still app-only (no table yet): completed lessons, chat history and guided-activity
-counts. Local ids (e.g. `caregiver-…`) and the `'owner'` placeholder for "accepted by
-the parent" would become real user ids once sign-in exists. Data saved by the first
-version of this app is upgraded automatically when the page loads.
-
-This is schema groundwork, not a live connection: the static app still uses
-browser `localStorage` and has no Supabase sign-in, data synchronization, or
-caregiver invitation/acceptance flow. Applying the migration alone will not
-share existing demo data or deliver messages to caregivers. Those require
-additional application integration and a trusted invitation flow before real
-caregiver access should be enabled.
+This is the first authentication step, not full backend data integration. At
+present, family details and activity still save to this browser's local storage
+(separate local records per signed-in account); they do not sync across devices
+or appear to other caregivers. Existing unsigned demo data is not imported.
+Family and caregiver tables in Supabase are not yet read or written by the app,
+and caregiver invitations are not implemented. Do not use the prototype to
+store real sensitive family information until those flows and access controls
+have been connected and tested.
 
 ## Limitations
 
