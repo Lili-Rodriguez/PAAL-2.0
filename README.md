@@ -4,13 +4,25 @@ A buildless HTML, CSS and JavaScript prototype. This is Andres's version
 (branch `andres-test`), rebuilt from Lili Rodriguez's original PAAL 2.0.
 Lili's original code is unchanged on her repository's `main` branch.
 
+## Curated parenting answer backend (November 2026)
+
+PAAL supports parents of children ages **2–12**. Chat uses a Python API with
+age-matched passage retrieval, a server-side model and separate support verification.
+Eight inspected article candidates are pending human review; no candidate is live-approved.
+Model credentials are not configured. Substantive model answers remain unavailable until
+approvals and credentials are supplied. The frontend design is preserved.
+See [backend setup and test status](backend/README.md) and [source review packet](backend/SOURCE_REVIEW.md).
+
+The older feature descriptions below describe the original prototype; the backend
+documentation is authoritative for the current chat flow.
+
 ## Run it
 
 ```sh
-python3 -m http.server 8000 --directory dist
+python3 -m backend.server --port 8098
 ```
 
-Then visit http://localhost:8000. No installation, API key or build step is needed.
+Then visit http://127.0.0.1:8098. No dependency installation or build step is needed. Evidence-backed chat also requires human-approved sources and server-side model configuration.
 To try it on a phone, use your computer's local IP address (same Wi-Fi), e.g.
 `http://192.168.1.23:8000`.
 

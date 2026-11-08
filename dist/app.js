@@ -9,13 +9,13 @@ let supabaseClient=null,authUser=null,authMode=backendConfigured&&sessionStorage
 /* ==========================================================
    PAAL – a parenting companion prototype
    ----------------------------------------------------------
-   Plain HTML/CSS/JS. No build step, no backend.
+   Plain HTML/CSS/JS with a same-origin Python answer API. No build step.
 
      1. CONTENT  – struggles, tips and lessons (edit the text here)
      2. STATE    – what the parent entered, saved in this browser
      3. HELPERS  – small utilities and the PAAL mascot
      4. SCREENS  – one function per page; each returns HTML
-     5. CHAT     – PAAL's scripted, keyword-based answers
+     5. CHAT     – reviewed guidance from the answer API
      6. ROUTER   – reads the #hash in the URL and draws the page
    ========================================================== */
 
@@ -357,14 +357,14 @@ function loadState() {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (!saved || typeof saved !== 'object') return emptyState();
     const loaded = migrate(saved);
-    return { ...emptyState(), ...loaded, care: { ...emptyState().care, ...loaded.care } };
+    return { ...emptyState(), ...loaded, chat: [], care: { ...emptyState().care, ...loaded.care } };
   } catch {
     return emptyState();
   }
 }
 
 function save() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* private mode: keep working in memory */ }
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, chat: [] })); } catch { /* private mode: keep working in memory */ }
 }
 
 let state = loadState();
@@ -624,8 +624,8 @@ function signupScreen() {
   const editing = Boolean(state.family);
 
   const ageOptions = selected => ['<option value="">Age</option>',
-    ...Array.from({ length: 18 }, (_, n) =>
-      `<option value="${n}" ${String(n) === String(selected) ? 'selected' : ''}>${n === 0 ? 'Under 1' : n}</option>`)
+    ...Array.from({ length: 11 }, (_, i) => i + 2).map(n =>
+      `<option value="${n}" ${String(n) === String(selected) ? 'selected' : ''}>${n}</option>`)
   ].join('');
 
   const childBlock = (child, i) => `<div class="child-block">
@@ -668,7 +668,7 @@ function signupScreen() {
 
       <fieldset>
         <legend>Your children</legend>
-        <p class="hint">For each child, choose as many areas as you like.</p>
+        <p class="hint">PAAL supports parents of children ages 2–12. For each child, choose as many areas as you like.</p>
         ${draft.children.map(childBlock).join('')}
         <button type="button" id="add-child" class="link-btn">+ Add another child</button>
       </fieldset>
@@ -703,7 +703,7 @@ function signupErrors(form) {
   form.children.forEach((c, i) => {
     const label = c.nickname || `child ${i + 1}`;
     if (!c.nickname) errors.push(`Add a name for child ${i + 1}.`);
-    if (c.age === '') errors.push(`Choose an age for ${label}.`);
+    if (c.age === '' || !Number.isInteger(c.age) || c.age < 2 || c.age > 12) errors.push(`Choose an age from 2 to 12 for ${label}.`);
     if (!c.goals.length) errors.push(`Choose at least one thing PAAL can help with for ${label}.`);
     if (c.goals.includes('other') && !c.other_goal) errors.push(`Describe the “something else” for ${label}.`);
   });
@@ -1418,7 +1418,7 @@ function paalScreen() {
       ${kids.map((c, i) => `<span class="kid-chip tone-${CHILD_TONES[i % CHILD_TONES.length]}">${esc(c.nickname)}</span>`).join('')}
     </p>
 
-    <div class="speech">Hi, I’m PAAL! I can help you with anything you need.</div>
+    <div class="speech">Hi, I’m PAAL! Tell me what’s happening and I’ll look for reviewed guidance.</div>
 
     <div class="chat-wrap">
       <div class="peeker">${paal('paal-peek')}</div>
@@ -1430,13 +1430,13 @@ function paalScreen() {
           ${prompts.map(text => `<button type="button" class="chip" data-prompt="${esc(text)}">${esc(text)}</button>`).join('')}</div>`}
         <form id="chat-form" class="chat-form">
           <label for="chat-input" class="sr-only">Describe what’s going on</label>
-          <textarea id="chat-input" rows="2" placeholder="Describe what’s going on…"></textarea>
+          <textarea id="chat-input" rows="2" maxlength="2000" placeholder="Describe what’s going on…"></textarea>
           <button class="btn primary" type="submit">Send</button>
         </form>
       </section>
     </div>
 
-    <p class="fine-print">PAAL shares general, research-based ideas, not medical advice.
+    <p class="fine-print">PAAL shares reviewed parenting guidance, not diagnoses. Chat clears when you reload.
       ${state.chat.length ? '<button id="clear-chat" class="link-btn">Clear chat</button>' : ''}</p>
 
     <section class="activities">
@@ -1476,100 +1476,69 @@ function messageMarkup(message) {
   return message.from === 'me' ? `<div class="msg me">${esc(message.text)}</div>` : paalBubble(message.html);
 }
 
-const SAFETY = /\b(emergency|danger|abus\w*|suicid\w*|not breathing|unconscious|poison\w*|hurt (him|her|them)sel\w*)\b/;
-
-// Scripted answers: find the topic whose keywords appear most in the message.
-function paalReply(text) {
-  const t = text.toLowerCase();
-  const kids = familyKids();
-  const kid = kids.find(c => c.nickname && t.includes(c.nickname.toLowerCase())) || (kids.length === 1 ? kids[0] : null);
-  let who = kid ? esc(kid.nickname) : 'your child';
-
-  if (SAFETY.test(t)) {
-    return `<p>If anyone might be in danger right now, please call <strong>911</strong> (or your local emergency number) right away.</p>
-      <p>For anything urgent about your child’s health, contact your pediatrician. I’m a prototype and can only share general ideas.</p>`;
-  }
-  if (/^(hi|hello|hey|hola)\b/.test(t) && t.length < 25) {
-    return `<p>Hi ${esc(state.profile.display_name)}! Tell me what’s going on with ${esc(childNames())}: bedtime, screens, big feelings, or anything else, and I’ll share ideas that research says can help.</p>`;
-  }
-  if (/\bthank/.test(t)) {
-    return `<p>You’re welcome! You’re doing a great job by looking for ideas. I’m here whenever you need me.</p>`;
-  }
-
-  let best = null, bestScore = 0;
-  for (const s of STRUGGLES) {
-    const score = (t.match(s.pattern) || []).length;
-    if (score > bestScore) { best = s; bestScore = score; }
-  }
-
-  // "Give me ideas now" wins when it's at least as strong as a topic match
-  const quickScore = (t.match(QUICK) || []).length;
-  if (quickScore && quickScore >= bestScore) return quickIdeasReply(t, kid ? [kid] : kids);
-
-  if (!best) {
-    return `<p>I’m not sure I understood that one yet. I’m a prototype, so right now I know most about
-      <strong>sleep</strong>, <strong>screens</strong>, <strong>tantrums</strong> and <strong>everyday connection</strong>.
-      Could you tell me a bit more?</p>`;
-  }
-
-  // No name in the message? Use the child who has this support area, if there's only one
-  if (!kid) {
-    const withGoal = kids.filter(c => c.goals.includes(best.id));
-    if (withGoal.length === 1) who = esc(withGoal[0].nickname);
-  }
-
-  return `<p>${best.intro.replace('{child}', who)}</p>
-    <p><strong>${best.title}</strong><br><small>${best.method}</small></p>
-    <ol>${best.steps.map(step => `<li>${step}</li>`).join('')}</ol>
-    <p class="chat-links"><a href="#learn/${best.lessonId}">Open the full lesson</a> ·
-      <a href="${best.source.url}" target="_blank" rel="noopener">Source</a></p>`;
-}
-
-const QUICK = /\b(distract\w*|bored\w*|ideas?|quick\w*|right now|something to do|activit\w*|busy|entertain\w*)\b/g;
-const ON_THE_GO = /\b(waiting|wait|car|restaurant|line|store|doctor|plane|airport|queue|stuck)\b/;
-
-// Three random screen-free ideas that fit every child the message is about
-function quickIdeasReply(text, children) {
-  const ages = children.map(c => Number(c.age));
-  const fits = idea => ages.every(a => a >= idea.ages[0] && a <= idea.ages[1]);
-  let pool = QUICK_IDEAS.filter(fits);
-  if (!pool.length) pool = QUICK_IDEAS.filter(idea => ages.some(a => a >= idea.ages[0] && a <= idea.ages[1]));
-  const onTheGo = ON_THE_GO.test(text);
-  if (onTheGo && pool.some(i => i.anywhere)) pool = pool.filter(i => i.anywhere);
-  const picks = pool.sort(() => Math.random() - .5).slice(0, 3);
-  const who = esc(listNames(children.map(c => c.nickname)));
-  const forKids = children.map(c => c.id).join(',');
-
-  return `<p>Here are a few screen-free ideas for ${who} you can start right now${onTheGo ? ', no supplies needed' : ''}:</p>
-    <ul class="idea-list">${picks.map(i => `<li><strong>${i.title}:</strong> ${i.how}
-      <button type="button" class="save-idea" data-save-idea="${i.id}" data-kids="${forKids}">☆ Save</button></li>`).join('')}</ul>
-    <p><small>Tip: offer a choice of two (“${picks[0]?.title} or ${picks[1]?.title}?”). Kids join in more easily when they get to pick.
-      Ask me again for different ideas.</small></p>`;
-}
-
+// Chat content stays in memory; only the current situation and age go to the API.
+let pendingParentingQuestion = null;
 let replying = false;
 
-function sendMessage(text) {
+function answerMarkup(answer) {
+  const sources = new Map((answer.sources || []).map(source => [source.id, source]));
+  const linked = id => {
+    const source = sources.get(id);
+    if (!source || !/^https:\/\//.test(source.url)) return '';
+    return `<a href="${esc(source.url)}" target="_blank" rel="noopener noreferrer">${esc(source.title)}</a>`;
+  };
+  const cite = claim => linked(claim.source_id) ? ` <small>(${linked(claim.source_id)})</small>` : '';
+  return `<p>${esc(answer.reassurance || '')}</p>
+    ${answer.parent_words ? `<p><strong>You could say:</strong> “${esc(answer.parent_words.text)}”<br><small>Suggested wording adapted from the guidance, not an expert quotation.</small>${cite(answer.parent_words)}</p>` : ''}
+    ${answer.actions?.length ? `<ol>${answer.actions.map(action => `<li>${esc(action.text)}${cite(action)}</li>`).join('')}</ol>` : ''}
+    ${answer.why ? `<p>${esc(answer.why.text)}${cite(answer.why)}</p>` : ''}
+    ${(answer.uncertainty || []).map(text => `<p><small>${esc(text)}</small></p>`).join('')}
+    ${answer.question ? `<p>${esc(answer.question)}</p>` : ''}
+    ${answer.citations?.length ? `<p class="chat-links">${answer.citations.map(id => {
+      const source = sources.get(id);
+      return linked(id) + (source ? ` <small>(${esc(source.evidence_type.replaceAll('_', ' '))})</small>` : '');
+    }).join(' · ')}</p>` : ''}`;
+}
+
+async function paalReply(text) {
+  const children = familyKids();
+  const named = children.filter(child => child.nickname && text.toLowerCase().includes(child.nickname.toLowerCase()));
+  const child = named.length === 1 ? named[0] : children.length === 1 ? children[0] : null;
+  // An explicit age in this message takes priority over the family profile.
+  const ageMatch = text.match(/\b(\d{1,3}(?:\.\d+)?)\s*[- ]?\s*(months?|mos?|years?|yrs?)(?:[- ]old)?\b/i);
+  const ageOnly = pendingParentingQuestion && text.match(/^\s*(\d{1,2})\s*$/);
+  let ageMonths = ageMatch ? Number(ageMatch[1]) * (/^(month|mo)/i.test(ageMatch[2]) ? 1 : 12) : ageOnly ? Number(ageOnly[1])*12 : child && child.age !== '' ? Number(child.age)*12 : null;
+  const question = pendingParentingQuestion && (ageMatch || ageOnly) ? pendingParentingQuestion : text;
+  const payload = { message: question };
+  if (ageMonths !== null && Number.isFinite(ageMonths)) payload.age_months = ageMonths;
+  const headers = { 'Content-Type': 'application/json' };
+  const response = await fetch('/api/answer', { method: 'POST', headers, body: JSON.stringify(payload), signal: AbortSignal.timeout(15000), cache: 'no-store' });
+  if (!response.ok) throw new Error('Guidance unavailable');
+  const answer = await response.json();
+  pendingParentingQuestion = answer.status === 'clarify' && ageMonths === null ? question : null;
+  return answerMarkup(answer);
+}
+
+async function sendMessage(text) {
   text = text.trim();
   if (!text || replying) return;
-  state.chat.push({ from: 'me', text });
-  save();
-  render();
-
-  // Show "typing…" for a moment so it feels like a conversation
+  if (text.length > 2000) { toast('Please keep your message under 2,000 characters.'); return; }
   replying = true;
+  state.chat.push({ from: 'me', text });
+  render();
   $('#chat-log').insertAdjacentHTML('beforeend', paalBubble('<span class="typing"><span></span><span></span><span></span></span>'));
   scrollChat();
-
-  setTimeout(() => {
-    state.chat.push({ from: 'paal', html: paalReply(text) });
+  try {
+    state.chat.push({ from: 'paal', html: await paalReply(text) });
+  } catch {
+    state.chat.push({ from: 'paal', html: answerMarkup(window.PAAL_SAFETY_FALLBACK || { reassurance: 'The reviewed guidance service is unavailable. If anyone is in immediate danger, contact local emergency services now (911 in the United States).' }) });
+  } finally {
     replying = false;
-    save();
     if (currentRoute().page === 'paal') {
       render();
-      if (!matchMedia('(pointer: coarse)').matches) $('#chat-input').focus(); // don't pop the phone keyboard
+      if (!matchMedia('(pointer: coarse)').matches) $('#chat-input').focus();
     }
-  }, 700);
+  }
 }
 
 function scrollChat() {
@@ -1604,7 +1573,7 @@ function bindChat() {
     };
   });
   const clear = $('#clear-chat');
-  if (clear) clear.onclick = () => { state.chat = []; save(); render(); };
+  if (clear) clear.onclick = () => { state.chat = []; pendingParentingQuestion = null; save(); render(); };
 }
 
 
