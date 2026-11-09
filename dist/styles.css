@@ -828,3 +828,5 @@ legend { margin-bottom: 12px; padding: 0; font-size: 19px; font-weight: 650; let
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+.auth-page{min-height:100vh;max-width:620px;margin:0 auto;padding:38px 26px 70px}.auth-logo{display:inline-block;margin-bottom:60px}.auth-card{padding:clamp(28px,6vw,58px);background:#fffdf7;border:1px solid var(--line);border-radius:22px;box-shadow:0 14px 48px #20251f0a}.auth-card h1{font-size:clamp(36px,7vw,52px)}.auth-card .field{margin:20px 0}.auth-submit{width:100%;margin-top:5px}.auth-links{margin-top:26px;font-size:14px}.auth-links .link{margin-left:7px}.auth-forgot{margin-top:16px}.auth-message{padding:13px 16px;border-radius:9px;background:#f8e9e3;color:#8e3028;font-size:14px;line-height:1.5}.auth-message.success{background:#e8efe4;color:var(--green)}.auth-privacy{margin:28px 0 0}.account-email{max-width:35vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:#626b5e}.sign-out{padding:10px 15px;font-size:13px}

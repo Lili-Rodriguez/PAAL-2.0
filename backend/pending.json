@@ -1,0 +1,564 @@
+[
+  {
+    "id": "cdc-emotions",
+    "url": "https://www.cdc.gov/parenting-toddlers/noticing-and-naming/emotion-coaching.html",
+    "title": "Tips for Noticing and Naming Emotions",
+    "publisher": "CDC",
+    "author_or_reviewer": null,
+    "publication_or_update_date": "2026-04-30",
+    "retrieval_date": "2026-11-08",
+    "ages_months": [
+      24,
+      59
+    ],
+    "topics": [
+      "tantrums",
+      "emotions"
+    ],
+    "review_status": "pending",
+    "evidence_type": "professional_guidance",
+    "storage_basis": "Original editorial paraphrases of factual guidance; no article text or images stored.",
+    "review": {
+      "reviewer": "Codex editorial source inspection (not clinical approval)",
+      "date": "2026-11-08",
+      "scope": "Only calm presence and later emotion coaching; no mandatory eye contact or touch. Research effectiveness not independently graded.",
+      "next_review": null
+    },
+    "passages": [
+      {
+        "id": "cdc-space",
+        "text": "During distress, prioritize safety, supervise nearby and allow time to settle. Emotion coaching waits until both people are calm (Practice emotion coaching).",
+        "action": "Stay nearby, check that everyone is safe, and give your child time and space. Save problem-solving for when you are both calmer.",
+        "wording": "I\u2019m nearby. We can talk when you\u2019re ready.",
+        "why": "Distress can make conversation difficult; waiting leaves room for listening later.",
+        "support_review": "pending",
+        "support_reviewer": "Codex editorial comparison against linked passage",
+        "topics": [
+          "tantrums",
+          "emotions"
+        ],
+        "ages_months": [
+          24,
+          59
+        ],
+        "locator": "Only calm presence and later emotion coaching; no mandatory eye contact or touch. Research effectiveness not independently graded."
+      },
+      {
+        "id": "cdc-name",
+        "text": "When calm and able to engage, listen without judgment and tentatively name feelings; the child may correct the label (Steps 3\u20134; Reflecting emotions).",
+        "action": "When your child can engage, listen and gently check what they are feeling. Accept a correction.",
+        "wording": "It looks like something is upsetting you. Is that right?",
+        "why": "Listening and naming feelings can help children learn to recognize emotions.",
+        "support_review": "pending",
+        "support_reviewer": "Codex editorial comparison against linked passage",
+        "topics": [
+          "communication",
+          "emotions"
+        ],
+        "ages_months": [
+          24,
+          59
+        ],
+        "locator": "Only calm presence and later emotion coaching; no mandatory eye contact or touch. Research effectiveness not independently graded."
+      }
+    ],
+    "human_review": null,
+    "access": {
+      "actual_article_read": true,
+      "method": "Public article body opened and read; no paywall bypass",
+      "read_date": "2026-11-08"
+    },
+    "rights": {
+      "status": "pending_human_review",
+      "basis": "Original factual editorial summaries only; no article text, images or quotations copied. Human must confirm permitted storage and model use."
+    },
+    "age_basis": "Editorial restriction to the age group discussed in the article; human confirmation required."
+  },
+  {
+    "id": "aap-tantrums",
+    "url": "https://www.healthychildren.org/english/family-life/family-dynamics/communication-discipline/pages/temper-tantrums.aspx",
+    "title": "Top Tips for Surviving Tantrums",
+    "publisher": "American Academy of Pediatrics / HealthyChildren.org",
+    "author_or_reviewer": "Wendy Sue Swanson, MD, MBE, FAAP",
+    "publication_or_update_date": "2021-04-21",
+    "retrieval_date": "2026-11-08",
+    "ages_months": [
+      12,
+      47
+    ],
+    "topics": [
+      "tantrums",
+      "emotions"
+    ],
+    "review_status": "pending",
+    "evidence_type": "expert_opinion",
+    "storage_basis": "Original editorial paraphrases of factual guidance; no article text or images stored.",
+    "review": {
+      "reviewer": "Codex editorial source inspection (not clinical approval)",
+      "date": "2026-11-08",
+      "scope": "Only tips 5 and 8 approved. Physical holding and privilege removal in other sections are excluded. Distraction suggestions differ from CDC distress guidance.",
+      "next_review": null
+    },
+    "passages": [
+      {
+        "id": "aap-capacity",
+        "text": "Tip 5 recognizes children\u2019s limits; tip 8 suggests another caregiver taking over when adult frustration increases.",
+        "action": "Keep expectations small for this moment. If a trusted caregiver is available and you need a break, ask them to take over.",
+        "wording": "We can pause here.",
+        "why": "A smaller demand or supported break may make the moment more manageable.",
+        "support_review": "pending",
+        "support_reviewer": "Codex editorial comparison against linked passage",
+        "topics": [
+          "caregiver_stress"
+        ],
+        "ages_months": [
+          12,
+          47
+        ],
+        "locator": "Only tips 5 and 8 approved. Physical holding and privilege removal in other sections are excluded. Distraction suggestions differ from CDC distress guidance."
+      }
+    ],
+    "human_review": null,
+    "access": {
+      "actual_article_read": true,
+      "method": "Public article body opened and read; no paywall bypass",
+      "read_date": "2026-11-08"
+    },
+    "rights": {
+      "status": "pending_human_review",
+      "basis": "Original factual editorial summaries only; no article text, images or quotations copied. Human must confirm permitted storage and model use."
+    },
+    "age_basis": "Editorial restriction to the age group discussed in the article; human confirmation required."
+  },
+  {
+    "id": "ztt-tantrums",
+    "url": "https://www.zerotothree.org/resource/toddler-tantrums-101-why-they-happen-and-what-you-can-do/",
+    "title": "Toddler Tantrums 101: Why They Happen and What You Can Do",
+    "publisher": "ZERO TO THREE",
+    "author_or_reviewer": null,
+    "publication_or_update_date": "2024-04-10",
+    "retrieval_date": "2026-11-08",
+    "ages_months": [
+      12,
+      47
+    ],
+    "topics": [
+      "tantrums",
+      "emotions"
+    ],
+    "review_status": "pending",
+    "evidence_type": "professional_guidance",
+    "storage_basis": "Original editorial paraphrases of factual guidance; no article text or images stored.",
+    "review": {
+      "reviewer": "Codex editorial source inspection (not clinical approval)",
+      "date": "2026-11-08",
+      "scope": "Only brief compassionate limits approved; no promise of calming. Not a systematic research review.",
+      "next_review": null
+    },
+    "passages": [
+      {
+        "id": "ztt-limit",
+        "text": "Prevention and Intervention: communicate necessary limits briefly and steadily; accept feelings while maintaining limits without shaming.",
+        "action": "If a limit is needed, state it briefly in a steady voice while acknowledging the feeling.",
+        "wording": "You seem upset. The limit is still the same. I\u2019m here.",
+        "why": "A brief, compassionate limit can support regulation without shaming.",
+        "support_review": "pending",
+        "support_reviewer": "Codex editorial comparison against linked passage",
+        "topics": [
+          "boundaries",
+          "emotions"
+        ],
+        "ages_months": [
+          12,
+          47
+        ],
+        "locator": "Only brief compassionate limits approved; no promise of calming. Not a systematic research review."
+      },
+      {
+        "id": "ztt-transition",
+        "text": "Prevention: give notice before an activity ends; offer genuine, limited choices. Advance notice does not always prevent a tantrum.",
+        "action": "Before an activity ends, give a concrete heads-up and offer two acceptable choices when there really is a choice.",
+        "wording": "After this turn, we\u2019re leaving. Would you like to walk beside me or hold my hand?",
+        "why": "A heads-up and a small choice may make the change easier to anticipate; they will not prevent every protest.",
+        "support_review": "pending",
+        "support_reviewer": "Codex editorial comparison; awaiting human review",
+        "topics": [
+          "transitions"
+        ],
+        "ages_months": [
+          24,
+          47
+        ],
+        "locator": "Prevention, advance notice and age-appropriate choices"
+      }
+    ],
+    "human_review": null,
+    "access": {
+      "actual_article_read": true,
+      "method": "Public article body opened and read; no paywall bypass",
+      "read_date": "2026-11-08"
+    },
+    "rights": {
+      "status": "pending_human_review",
+      "basis": "Original factual editorial summaries only; no article text, images or quotations copied. Human must confirm permitted storage and model use."
+    },
+    "age_basis": "Editorial restriction to the age group discussed in the article; human confirmation required."
+  },
+  {
+    "id": "cdc-directions",
+    "url": "https://www.cdc.gov/parenting-toddlers/communication/giving-directions.html",
+    "title": "Tips for Giving Directions",
+    "publisher": "CDC",
+    "author_or_reviewer": null,
+    "publication_or_update_date": "2026-04-30",
+    "retrieval_date": "2026-11-08",
+    "ages_months": [
+      24,
+      59
+    ],
+    "topics": [
+      "communication",
+      "boundaries"
+    ],
+    "review_status": "pending",
+    "evidence_type": "professional_guidance",
+    "storage_basis": "Original factual editorial paraphrases; no full text, images or expert quotations stored.",
+    "review": {
+      "reviewer": "Codex editorial inspection; pending human review",
+      "date": "2026-11-08",
+      "scope": "Only specific positive directions and two acceptable choices; excludes unspecific consequence instructions.",
+      "next_review": null
+    },
+    "human_review": null,
+    "access": {
+      "actual_article_read": true,
+      "method": "Public article body opened and read; no paywall bypass",
+      "read_date": "2026-11-08"
+    },
+    "rights": {
+      "status": "pending_human_review",
+      "basis": "Human must confirm permission for original summaries and sending them to a model; publisher reproduction license not obtained."
+    },
+    "age_basis": "Conservative editorial applicability within PAAL ages 2\u201312; human must confirm. General family guidance does not establish effectiveness for every age.",
+    "passages": [
+      {
+        "id": "cdc-clear-direction",
+        "text": "Provide clear directions: describe the action wanted instead of a vague command to stop. Encourage positive choices: give two simple acceptable options.",
+        "topics": [
+          "communication",
+          "boundaries"
+        ],
+        "ages_months": [
+          24,
+          59
+        ],
+        "locator": "Tips: Provide clear directions; Encourage positive choices",
+        "action": "Use one clear, age-appropriate direction that says what your child can do. If either option is acceptable, offer two simple choices.",
+        "wording": "Please put the toy on the floor gently.",
+        "why": "Specific directions make the expected action clearer than a vague demand to stop.",
+        "support_review": "pending",
+        "support_reviewer": "Codex editorial comparison; awaiting human review"
+      }
+    ]
+  },
+  {
+    "id": "ztt-biting",
+    "url": "https://www.zerotothree.org/resource/toddler-biting-finding-the-right-response/",
+    "title": "Toddler Biting: Finding the Right Response",
+    "publisher": "ZERO TO THREE",
+    "author_or_reviewer": null,
+    "publication_or_update_date": "2025-02-22",
+    "retrieval_date": "2026-11-08",
+    "ages_months": [
+      24,
+      47
+    ],
+    "topics": [
+      "biting",
+      "aggression"
+    ],
+    "review_status": "pending",
+    "evidence_type": "professional_guidance",
+    "storage_basis": "Original factual editorial paraphrases; no full text, images or expert quotations stored.",
+    "review": {
+      "reviewer": "Codex editorial inspection; pending human review",
+      "date": "2026-11-08",
+      "scope": "Only short non-shaming limits, attending to the hurt child and later replacement communication. Excludes food/teething prescriptions, bear hugs and promises of eliminating biting.",
+      "next_review": null
+    },
+    "human_review": null,
+    "access": {
+      "actual_article_read": true,
+      "method": "Public article body opened and read; no paywall bypass",
+      "read_date": "2026-11-08"
+    },
+    "rights": {
+      "status": "pending_human_review",
+      "basis": "Human must confirm permission for original summaries and sending them to a model; publisher reproduction license not obtained."
+    },
+    "age_basis": "Conservative editorial applicability within PAAL ages 2\u201312; human must confirm. General family guidance does not establish effectiveness for every age.",
+    "passages": [
+      {
+        "id": "ztt-bite-response",
+        "text": "What should caregivers do: regulate your own reaction, state a short non-angry limit and attend to the child who was bitten. Later, when able to communicate, teach an alternative way to ask for help.",
+        "topics": [
+          "biting",
+          "aggression"
+        ],
+        "ages_months": [
+          24,
+          47
+        ],
+        "locator": "What should caregivers do when a toddler bites?, steps 1\u20133",
+        "action": "Keep your response brief and steady: set a no-biting limit, then attend to the child who was hurt. Later, practice asking an adult for help instead.",
+        "wording": "Biting hurts. I\u2019m going to help the child who is hurt.",
+        "why": "A clear limit and later practice offer an alternative to biting; learning takes time.",
+        "support_review": "pending",
+        "support_reviewer": "Codex editorial comparison; awaiting human review"
+      }
+    ]
+  },
+  {
+    "id": "aap-separation",
+    "url": "https://www.healthychildren.org/English/ages-stages/toddler/Pages/Soothing-Your-Childs-Separation-Anxiety.aspx",
+    "title": "How to Ease Your Child\u2019s Separation Anxiety",
+    "publisher": "American Academy of Pediatrics / HealthyChildren.org",
+    "author_or_reviewer": "Wendy Sue Swanson, MD, MBE, FAAP",
+    "publication_or_update_date": "2026-05-11",
+    "retrieval_date": "2026-11-08",
+    "ages_months": [
+      24,
+      59
+    ],
+    "topics": [
+      "separation"
+    ],
+    "review_status": "pending",
+    "evidence_type": "professional_guidance",
+    "storage_basis": "Original factual editorial paraphrases; no full text, images or expert quotations stored.",
+    "review": {
+      "reviewer": "Codex editorial inspection; pending human review",
+      "date": "2026-11-08",
+      "scope": "Only consistent brief goodbye routine and truthful child-understandable return cue. Excludes assumptions about manipulation and blanket instructions to leave a distressed child.",
+      "next_review": null
+    },
+    "human_review": null,
+    "access": {
+      "actual_article_read": true,
+      "method": "Public article body opened and read; no paywall bypass",
+      "read_date": "2026-11-08"
+    },
+    "rights": {
+      "status": "pending_human_review",
+      "basis": "Human must confirm permission for original summaries and sending them to a model; publisher reproduction license not obtained."
+    },
+    "age_basis": "Conservative editorial applicability within PAAL ages 2\u201312; human must confirm. General family guidance does not establish effectiveness for every age.",
+    "passages": [
+      {
+        "id": "aap-goodbye",
+        "text": "Tips 1\u20135: use a brief repeatable goodbye, give attention at parting and explain return in terms the child understands; keep the return promise.",
+        "topics": [
+          "separation"
+        ],
+        "ages_months": [
+          24,
+          59
+        ],
+        "locator": "Surviving separation anxiety: tips 1\u20135",
+        "action": "At a planned handoff to a trusted caregiver, use a short familiar goodbye. Explain when you will return using a true event your child understands.",
+        "wording": "I\u2019m saying goodbye now. I\u2019ll be back after your afternoon snack, as we planned.",
+        "why": "A predictable goodbye and keeping the return promise may support trust. Use only a return cue that is actually true.",
+        "support_review": "pending",
+        "support_reviewer": "Codex editorial comparison; awaiting human review"
+      }
+    ]
+  },
+  {
+    "id": "aap-communication",
+    "url": "https://www.healthychildren.org/English/family-life/family-dynamics/communication-discipline/Pages/Improving-Family-Communications.aspx",
+    "title": "Improving Family Communications",
+    "publisher": "American Academy of Pediatrics / HealthyChildren.org",
+    "author_or_reviewer": null,
+    "publication_or_update_date": "2025-12-15",
+    "retrieval_date": "2026-11-08",
+    "ages_months": [
+      24,
+      155
+    ],
+    "topics": [
+      "communication",
+      "caregiver_stress"
+    ],
+    "review_status": "pending",
+    "evidence_type": "professional_guidance",
+    "storage_basis": "Original factual editorial paraphrases; no full text, images or expert quotations stored.",
+    "review": {
+      "reviewer": "Codex editorial inspection; pending human review",
+      "date": "2026-11-08",
+      "scope": "Only listening, checking understanding and pausing while stressed. Family-wide applicability is an editorial proposal, not an age-specific trial. Excludes guilt-inducing wording and required eye contact/touch.",
+      "next_review": null
+    },
+    "human_review": null,
+    "access": {
+      "actual_article_read": true,
+      "method": "Public article body opened and read; no paywall bypass",
+      "read_date": "2026-11-08"
+    },
+    "rights": {
+      "status": "pending_human_review",
+      "basis": "Human must confirm permission for original summaries and sending them to a model; publisher reproduction license not obtained."
+    },
+    "age_basis": "Conservative editorial applicability within PAAL ages 2\u201312; human must confirm. General family guidance does not establish effectiveness for every age.",
+    "passages": [
+      {
+        "id": "aap-listen",
+        "text": "Be a good listener: ask about the child\u2019s experience, listen and repeat what you understood to check meaning; agreement is not required.",
+        "topics": [
+          "communication"
+        ],
+        "ages_months": [
+          24,
+          155
+        ],
+        "locator": "How can I improve communications in my family? Be a good listener",
+        "action": "Make a little time without distractions. Listen to your child, then check whether you understood rather than assuming what they feel.",
+        "wording": "I want to understand. Did I get that right?",
+        "why": "Checking your understanding lets your child correct you and helps communication.",
+        "support_review": "pending",
+        "support_reviewer": "Codex editorial comparison; awaiting human review"
+      },
+      {
+        "id": "aap-pause",
+        "text": "Keeping Your Cool: slow breaths and a pause before talking can help a stressed adult; seek professional help if feeling out of control.",
+        "topics": [
+          "caregiver_stress"
+        ],
+        "ages_months": [
+          24,
+          155
+        ],
+        "locator": "Keeping Your Cool",
+        "action": "If you are too stressed to talk calmly, pause and take a few slow breaths before returning to the conversation, keeping your child safely cared for.",
+        "wording": "I need a moment to calm my voice. Then I\u2019ll listen.",
+        "why": "Pausing can help you approach the conversation more calmly.",
+        "support_review": "pending",
+        "support_reviewer": "Codex editorial comparison; awaiting human review"
+      }
+    ]
+  },
+  {
+    "id": "aap-discipline",
+    "url": "https://www.healthychildren.org/English/family-life/family-dynamics/communication-discipline/Pages/Disciplining-Your-Child.aspx",
+    "title": "What\u2019s the Best Way to Discipline My Child?",
+    "publisher": "American Academy of Pediatrics / HealthyChildren.org",
+    "author_or_reviewer": null,
+    "publication_or_update_date": "2018-11-05",
+    "retrieval_date": "2026-11-08",
+    "ages_months": [
+      24,
+      155
+    ],
+    "topics": [
+      "boundaries",
+      "aggression",
+      "repair",
+      "caregiver_stress"
+    ],
+    "review_status": "pending",
+    "evidence_type": "professional_guidance",
+    "storage_basis": "Original factual editorial paraphrases; no full text, images or expert quotations stored.",
+    "review": {
+      "reviewer": "Codex editorial inspection; pending human review",
+      "date": "2026-11-08",
+      "scope": "Only clear limits, preschool non-harmful expression, gradeschool discussion and adult repair. Excludes time-outs, ignoring, privilege removal and physical punishment. Repair is broad family guidance; age bands are editorial and pending review.",
+      "next_review": null
+    },
+    "human_review": null,
+    "access": {
+      "actual_article_read": true,
+      "method": "Public article body opened and read; no paywall bypass",
+      "read_date": "2026-11-08"
+    },
+    "rights": {
+      "status": "pending_human_review",
+      "basis": "Human must confirm permission for original summaries and sending them to a model; publisher reproduction license not obtained."
+    },
+    "age_basis": "Conservative editorial applicability within PAAL ages 2\u201312; human must confirm. General family guidance does not establish effectiveness for every age.",
+    "passages": [
+      {
+        "id": "aap-toddler-limit",
+        "text": "Show and tell; Set limits; Toddlers: model nonviolent behavior, explain simple rules and teach not hitting or biting.",
+        "topics": [
+          "hitting",
+          "aggression",
+          "boundaries"
+        ],
+        "ages_months": [
+          24,
+          35
+        ],
+        "locator": "Strategies 1\u20132; Toddlers",
+        "action": "Calmly state a simple no-hitting rule. Model gentle actions.",
+        "wording": "Hitting hurts. Gentle hands.",
+        "why": "A simple rule and your example show the expected behavior.",
+        "support_review": "pending",
+        "support_reviewer": "Codex editorial comparison; awaiting human review"
+      },
+      {
+        "id": "aap-preschool-limit",
+        "text": "Preschool: anger is acceptable; harming people or things is not. Teach expressing anger in words.",
+        "topics": [
+          "aggression",
+          "hitting",
+          "boundaries"
+        ],
+        "ages_months": [
+          36,
+          71
+        ],
+        "locator": "Healthy & effective discipline tips: Preschool Age",
+        "action": "State the limit calmly. Later, help your child express anger in words.",
+        "wording": "Anger is okay. Hitting hurts.",
+        "why": "This teaches an alternative expression.",
+        "support_review": "pending",
+        "support_reviewer": "Codex editorial comparison; awaiting human review"
+      },
+      {
+        "id": "aap-school-limit",
+        "text": "Gradeschool: discuss choices, likely consequences and family expectations; model patience and respect.",
+        "topics": [
+          "boundaries",
+          "aggression",
+          "hitting"
+        ],
+        "ages_months": [
+          72,
+          155
+        ],
+        "locator": "Healthy & effective discipline tips: Gradeschool-Age Children",
+        "action": "Discuss the no-hurting expectation and safer choices for next time.",
+        "wording": "What could you choose next time?",
+        "why": "Discussion gives practice considering choices.",
+        "support_review": "pending",
+        "support_reviewer": "Codex editorial comparison; awaiting human review"
+      },
+      {
+        "id": "aap-repair",
+        "text": "Learn from mistakes: cool down, apologize, explain a changed response and follow through.",
+        "topics": [
+          "repair"
+        ],
+        "ages_months": [
+          24,
+          155
+        ],
+        "locator": "Learn from mistakes\u2014including your own",
+        "action": "After calming down, apologize and explain what you will change. Follow through.",
+        "wording": "I\u2019m sorry I yelled. Next time I\u2019ll pause.",
+        "why": "This models recovering from mistakes.",
+        "support_review": "pending",
+        "support_reviewer": "Codex editorial comparison; awaiting human review"
+      }
+    ]
+  }
+]
