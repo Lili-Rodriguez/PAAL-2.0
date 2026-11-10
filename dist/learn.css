@@ -1,0 +1,278 @@
+/* ==========================================================
+   Interactive lessons (see learn.js). Colors come from the lesson's
+   tone (.tone-lav, .tone-sky, ...) defined in styles.css.
+   ========================================================== */
+
+.lc { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; min-height: calc(100vh - 220px); }
+
+/* Top bar: close, progress, count */
+.lc-top { display: flex; align-items: center; gap: 14px; }
+.lc-close { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; color: var(--muted); text-decoration: none; font-size: 18px; }
+.lc-close:hover { background: #f1ebe4; }
+.lc-bar { flex: 1; height: 12px; overflow: hidden; border-radius: 999px; background: #efe9e2; }
+.lc-bar-fill { height: 100%; border-radius: 999px; background: var(--tone); transition: width .35s ease; }
+.lc-count { min-width: 38px; text-align: right; font-size: 14px; font-weight: 650; color: var(--muted); }
+
+/* The card */
+.lc-card {
+  position: relative; flex: 1; overflow: hidden;
+  display: flex; flex-direction: column; gap: 14px;
+  padding: clamp(22px, 5vw, 36px);
+  background: var(--card); border: 1px solid var(--line); border-radius: 26px;
+  box-shadow: 0 10px 34px rgba(48, 45, 58, .07);
+}
+.lc-card::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 8px; background: var(--tone); }
+.lc-card.slide-next { animation: lc-in-next .32s ease; }
+.lc-card.slide-back { animation: lc-in-back .32s ease; }
+@keyframes lc-in-next { from { opacity: 0; transform: translateX(34px); } }
+@keyframes lc-in-back { from { opacity: 0; transform: translateX(-34px); } }
+
+.lc-kicker { margin: 6px 0 0; font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--tone-fg); }
+.lc-title { margin: 0; font-size: clamp(24px, 5.2vw, 32px); line-height: 1.2; }
+.lc-text { margin: 0; font-size: clamp(18px, 3.8vw, 21px); line-height: 1.55; }
+.lc-icon { display: grid; place-items: center; width: 92px; height: 92px; margin: 8px 0 2px; border-radius: 28px; background: var(--tone-bg); font-size: 48px; animation: bob 3.2s ease-in-out infinite; }
+.lc-icon.big { width: 110px; height: 110px; font-size: 58px; align-self: center; }
+.type-finish { text-align: center; align-items: stretch; }
+.type-finish .lc-title { text-align: center; }
+
+/* Who found this: photo, logo or initials */
+.lc-who-row { display: flex; flex-wrap: wrap; gap: 22px; margin: 6px 0 4px; }
+.lc-who { display: flex; flex: 1 1 200px; flex-direction: column; align-items: flex-start; gap: 6px; }
+.lc-who h2 { margin: 6px 0 0; font-size: 22px; line-height: 1.2; }
+.lc-who p { margin: 0; font-size: 14px; }
+.lc-avatar {
+  display: grid; place-items: center; width: 92px; height: 92px; overflow: hidden;
+  border: 4px solid #fff; border-radius: 50%;
+  background: var(--hue, var(--tone)); color: #fff;
+  font-size: 30px; font-weight: 800; letter-spacing: .02em;
+  box-shadow: 0 0 0 3px var(--tone-bg), 0 8px 18px rgba(48, 45, 58, .12);
+}
+.lc-avatar.org { border-radius: 24px; font-size: 24px; }
+.lc-avatar.has-img { background: #fff; padding: 10px; }
+.lc-avatar img { width: 100%; height: 100%; object-fit: contain; }
+.lc-credit { margin: auto 0 0; font-size: 12px; color: var(--muted); }
+
+/* Answer buttons */
+.lc-options { display: grid; gap: 10px; margin-top: 4px; }
+.lc-options.chips { display: flex; flex-wrap: wrap; }
+.lc-option {
+  width: 100%; padding: 16px 18px; border: 2px solid var(--line); border-radius: 16px;
+  background: #fff; color: var(--ink); font: inherit; font-size: 17px; line-height: 1.4; text-align: left; cursor: pointer;
+  transition: transform .12s, border-color .12s, background .12s;
+}
+.lc-option:hover:not(:disabled) { border-color: var(--tone); transform: translateY(-1px); }
+.lc-option:focus-visible, .lc-chip:focus-visible, .lc-reveal:focus-visible { outline: 3px solid var(--tone-fg); outline-offset: 2px; }
+.lc-option.right { border-color: #4f9a6e; background: #e6f5ec; }
+.lc-option.wrong { border-color: #d9826b; background: #fcebe5; animation: lc-shake .35s; }
+.lc-option:disabled { cursor: default; }
+@keyframes lc-shake { 25% { transform: translateX(-6px); } 60% { transform: translateX(6px); } }
+
+.lc-feedback { min-height: 3.2em; margin: 4px 0 0; padding: 12px 14px; border-radius: 14px; background: #f6f1ea; color: var(--muted); font-size: 16px; line-height: 1.45; }
+.lc-feedback.good { background: #e6f5ec; color: #25583f; animation: lc-pop .3s; }
+@keyframes lc-pop { from { transform: scale(.96); opacity: .4; } }
+
+/* Build: chips */
+.lc-chip { padding: 12px 16px; border: 2px solid var(--line); border-radius: 999px; background: #fff; color: var(--ink); font: inherit; font-size: 16px; cursor: pointer; transition: transform .12s, border-color .12s; }
+.lc-chip:hover:not(:disabled) { border-color: var(--tone); transform: translateY(-2px); }
+.lc-chip.taken { opacity: .35; }
+.lc-chip.shake { animation: lc-shake .35s; border-color: #d9826b; background: #fcebe5; }
+.lc-ribbon { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 64px; padding: 12px; border: 2px dashed var(--tone); border-radius: 16px; background: var(--tone-bg); }
+.lc-ribbon .lc-chip { border-color: transparent; background: #fff; cursor: default; }
+.lc-chip.in { animation: lc-pop .3s; }
+.lc-empty { color: var(--tone-fg); font-size: 15px; }
+
+/* Myth / truth */
+.lc-myth, .lc-truth, .lc-plan { padding: 18px 20px; border-radius: 18px; }
+.lc-myth { background: #fcebe5; }
+.lc-truth, .lc-plan { background: #e6f5ec; animation: lc-pop .35s; }
+.lc-myth p, .lc-truth p, .lc-plan p { margin: 8px 0 0; font-size: 19px; line-height: 1.5; }
+.lc-tag { display: inline-block; padding: 3px 11px; border-radius: 999px; background: #f4c9bb; color: #8e3028; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.lc-tag.good { background: #bfe3cd; color: #25583f; }
+.lc-reveal { align-self: flex-start; margin-top: 6px; }
+.lc-plan { text-align: left; }
+
+/* Finish */
+.lc-note { padding: 16px 18px; border-radius: 16px; background: var(--tone-bg); text-align: left; }
+.lc-note p { margin: 6px 0 0; font-size: 16px; line-height: 1.5; }
+.lc-sources { text-align: left; font-size: 14px; }
+.lc-sources summary { cursor: pointer; font-weight: 650; }
+.lc-sources li { margin: 6px 0; }
+.lc-finish { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 6px; }
+
+/* Back / Next */
+.lc-nav { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0 8px; }
+.lc-nav .btn { min-width: 120px; }
+.lc-nav .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* Confetti when you finish */
+.lc-confetti { pointer-events: none; position: absolute; inset: 0; overflow: hidden; }
+.lc-confetti i { position: absolute; top: -12px; left: var(--x); width: 9px; height: 15px; border-radius: 3px; background: var(--c); animation: lc-fall 2.2s var(--d) ease-in forwards; }
+@keyframes lc-fall { to { transform: translateY(110vh) rotate(540deg); opacity: .9; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .lc-confetti { display: none; }
+}
+
+/* ---------- Lesson cover ---------- */
+.lc-cover { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; padding-top: 4px; }
+.lc-theme { padding: 5px 14px; border-radius: 999px; background: var(--tone-bg); color: var(--tone-fg); font-size: 13px; font-weight: 750; }
+.lc-cover-art { width: min(100%, 240px); height: 130px; padding: 10px; border-radius: 22px; background: var(--tone-bg); }
+.lc-cover-title { margin: 0; font-size: clamp(25px, 6vw, 34px); line-height: 1.15; }
+.lc-based { width: 100%; padding: 16px 18px; border: 2px solid var(--tone-bg); border-radius: 18px; text-align: left; }
+.lc-based-label { font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--tone-fg); }
+.lc-study { margin: 6px 0 12px; font-size: 18px; font-weight: 650; line-height: 1.3; }
+.lc-byline { display: flex; align-items: center; gap: 12px; }
+.lc-byline .lc-avatar { flex: none; margin-right: -4px; }
+.lc-avatar.small { width: 52px; height: 52px; border-width: 3px; font-size: 17px; box-shadow: 0 0 0 2px var(--tone-bg); }
+.lc-avatar.org.small { border-radius: 14px; font-size: 14px; }
+.lc-avatar.has-img.small { padding: 5px; }
+.lc-by { display: flex; flex-direction: column; margin: 0; font-size: 14px; line-height: 1.35; }
+.lc-by span { color: var(--muted); }
+.lc-meta { margin: 0; color: var(--muted); font-size: 14px; }
+
+/* ---------- Learn list grouped by theme ---------- */
+.theme { margin: 34px 0 0; }
+.theme-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.theme-head h2 { margin: 0; font-size: 22px; }
+.theme-head p { margin: 2px 0 0; font-size: 14px; }
+.theme-head > div { flex: 1; }
+.theme-icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 16px; background: var(--tone-bg); font-size: 26px; }
+.theme-count { padding: 4px 12px; border-radius: 999px; background: var(--tone-bg); color: var(--tone-fg); font-size: 13px; font-weight: 750; }
+.lesson-by { margin: 0 0 6px; font-size: 13px; line-height: 1.4; color: var(--tone-fg); }
+.lesson-by strong { font-weight: 700; }
+
+/* ---------- Learn: search + categories ---------- */
+.learn-tools { display: grid; gap: 12px; margin: 0 0 22px; }
+.learn-search { display: flex; align-items: center; gap: 10px; padding: 0 16px; border: 2px solid var(--line); border-radius: 999px; background: #fff; transition: border-color .15s; }
+.learn-search:focus-within { border-color: var(--green); }
+.learn-search input { flex: 1; min-width: 0; height: 48px; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 16px; outline: none; }
+.learn-cats { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; scrollbar-width: none; }
+.learn-cats::-webkit-scrollbar { display: none; }
+.cat { flex: none; padding: 9px 16px; border: 2px solid var(--line); border-radius: 999px; background: #fff; color: var(--ink); font: inherit; font-size: 14px; font-weight: 650; white-space: nowrap; cursor: pointer; transition: background .12s, border-color .12s, transform .12s; }
+.cat:hover { transform: translateY(-1px); border-color: var(--tone, var(--green)); }
+.cat[aria-pressed="true"] { border-color: var(--tone-fg, var(--green)); background: var(--tone-bg, #e4efe7); color: var(--tone-fg, var(--green-dark)); }
+.cat:focus-visible { outline: 3px solid var(--green); outline-offset: 2px; }
+.learn-empty { margin: 30px 0; padding: 22px; border-radius: 18px; background: #f6f1ea; color: var(--muted); text-align: center; }
+.learn-empty[hidden], .theme[hidden], .lesson-card[hidden] { display: none; }
+
+/* ---------- Sign-up: small, quiet "Skip for now" ---------- */
+.skip-link { display: block; margin: 18px auto 0; padding: 6px 10px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.skip-link:hover { color: var(--ink); }
+
+/* ---------- Ratings (PREVIEW with sample numbers) ---------- */
+.rate { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 2px 0 10px; font-size: 13px; color: var(--muted); }
+.rate strong { color: var(--ink); font-size: 14px; }
+.stars { --pct: 100%; position: relative; display: inline-block; font-size: 15px; letter-spacing: 1px; line-height: 1;
+  background: linear-gradient(90deg, #e9a825 var(--pct), #ddd4c8 var(--pct)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.rate-help { padding: 2px 8px; border-radius: 999px; background: #e6f5ec; color: #25583f; font-weight: 650; }
+.rate-preview { padding: 2px 8px; border: 1px dashed #c9bfb2; border-radius: 999px; font-size: 11px; font-weight: 650; letter-spacing: .02em; color: #8a8178; }
+.rate.big { justify-content: center; font-size: 14px; margin: 0; }
+.rate.big .stars { font-size: 19px; }
+.lc-promise { margin: -4px 0 0; font-size: 17px; color: var(--muted); line-height: 1.4; }
+
+/* ---------- "Why it works" evidence card ---------- */
+.lc-text.sm { font-size: 17px; line-height: 1.55; }
+.lc-level { align-self: flex-start; padding: 5px 13px; border-radius: 999px; font-size: 13px; font-weight: 750; letter-spacing: .02em; }
+.lc-level.strong { background: #dff1e6; color: #25583f; }
+.lc-level.guide { background: #e1ecf7; color: #2f5f8a; }
+.lc-mech, .lc-limits { padding: 13px 16px; border-radius: 14px; font-size: 15px; line-height: 1.5; }
+.lc-mech { background: var(--tone-bg); }
+.lc-limits { background: #f6f1ea; }
+.lc-mech p, .lc-limits p { margin: 4px 0 0; }
+.lc-src { align-self: flex-start; color: var(--green); font-weight: 650; font-size: 15px; }
+
+/* ---------- Plan-maker tool ---------- */
+.tool-fields { display: grid; gap: 14px; }
+.tf { margin: 0; padding: 0; border: 0; min-width: 0; }
+.tf legend, .tf > span { display: block; margin-bottom: 7px; padding: 0; font-size: 13px; font-weight: 750; color: var(--tone-fg); letter-spacing: .02em; }
+.tf input[type="time"] { padding: 11px 14px; border: 2px solid var(--line); border-radius: 12px; font: inherit; font-size: 16px; background: #fff; color: var(--ink); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.lc-chip.on { border-color: var(--tone-fg); background: var(--tone-bg); color: var(--tone-fg); font-weight: 650; }
+.plan { padding: 18px 20px; border: 2px dashed var(--tone); border-radius: 18px; background: #fffdf8; }
+.plan-kicker { margin: 0; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--tone-fg); }
+.plan h3 { margin: 2px 0 6px; font-size: 22px; }
+.plan h4 { margin: 14px 0 4px; font-size: 13px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.plan ul, .plan ol { margin: 0; padding-left: 20px; }
+.plan li { margin: 4px 0; font-size: 16px; line-height: 1.45; }
+.plan-note { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+.tool-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* ---------- Finish: how did it go ---------- */
+.lc-fb { padding: 14px 16px; border-radius: 16px; background: #f6f1ea; text-align: left; }
+.lc-fb-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.lc-fb p { margin: 8px 0 0; font-size: 14px; }
+
+/* ==========================================================
+   Compact "Actions to try" list: small picture on the left,
+   text on the right, so many actions fit on one screen.
+   ========================================================== */
+.page-head { margin-bottom: 14px; }
+.page-head h1 { font-size: clamp(26px, 6vw, 34px); }
+.page-head .muted { margin: 2px 0 0; font-size: 14px; }
+.learn-tools { gap: 8px; margin-bottom: 12px; }
+.learn-search input { height: 42px; font-size: 15px; }
+.cat { padding: 7px 13px; font-size: 13px; }
+.progress { margin-bottom: 4px; padding: 12px 16px; }
+.progress-label { margin-bottom: 7px; font-size: 14px; }
+.progress-track { height: 10px; }
+
+.theme { margin-top: 18px; }
+.theme-head { gap: 10px; margin-bottom: 8px; }
+.theme-icon { width: 34px; height: 34px; border-radius: 11px; font-size: 18px; }
+.theme-head h2 { font-size: 18px; }
+.theme-head p { display: none; }
+.theme-count { padding: 2px 10px; font-size: 12px; }
+
+.theme .lesson-grid { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 10px; }
+.theme .lesson-card { display: grid; grid-template-columns: 92px 1fr; border-radius: 16px; }
+.theme .lesson-card:hover { transform: translateY(-2px); }
+.theme .lesson-art { display: grid; place-items: center; height: auto; min-height: 100%; padding: 8px; }
+.theme .lesson-art .lesson-svg { width: 100%; height: auto; max-height: 76px; }
+.theme .done-badge { top: 6px; left: 6px; right: auto; width: 22px; height: 22px; font-size: 12px; }
+.theme .lesson-copy { gap: 2px; padding: 10px 14px 10px; min-width: 0; }
+.theme .lesson-copy h2 { margin: 0; font-size: 16px; line-height: 1.25; }
+.theme .lesson-copy p { margin: 0; font-size: 13px; line-height: 1.35; }
+.theme .lesson-by { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; font-size: 12px; }
+.theme .lesson-copy > .muted { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.theme .rate { gap: 2px 6px; margin: 2px 0 0; font-size: 12px; }
+.theme .rate .stars { font-size: 13px; }
+.theme .rate strong { font-size: 13px; }
+.theme .rate-help { padding: 1px 7px; }
+.theme .rate-preview { padding: 1px 6px; font-size: 10px; }
+.theme .lesson-foot { margin-top: 2px; justify-content: flex-end; font-size: 13px; }
+.theme .lesson-foot > span:first-child { display: none; }
+
+@media (max-width: 420px) {
+  .theme .lesson-card { grid-template-columns: 76px 1fr; }
+  .theme .rate-count { display: none; }
+}
+
+/* ---- even tighter rows ---- */
+.preview-note { margin: 0; font-size: 12px; color: var(--muted); }
+.page-head .eyebrow { margin-bottom: 0; }
+.page-head .muted { display: none; }
+.progress { padding: 9px 14px; }
+.progress-label { margin-bottom: 5px; font-size: 13px; }
+.progress-track { height: 8px; }
+.theme { margin-top: 12px; }
+.theme-head { margin-bottom: 6px; }
+.theme-head h2 { font-size: 16px; }
+.theme-icon { width: 28px; height: 28px; border-radius: 9px; font-size: 15px; }
+
+.theme .lesson-grid { gap: 8px; }
+.theme .lesson-card { grid-template-columns: 70px 1fr; border-radius: 14px; }
+.theme .lesson-art { padding: 6px; }
+.theme .lesson-art .lesson-svg { max-height: 56px; }
+.theme .lesson-copy { gap: 1px; padding: 8px 12px; }
+.theme .lesson-copy h2 { font-size: 15px; }
+.theme .lesson-copy h2::after { content: " →"; color: var(--green); font-weight: 600; }
+.theme .lesson-copy > .muted { -webkit-line-clamp: 1; font-size: 12.5px; }
+.theme .lesson-foot { display: none; }
+.theme .rate { flex-wrap: nowrap; gap: 5px; margin-top: 1px; white-space: nowrap; overflow: hidden; }
+.theme .rate-count { display: none; }
+.theme .rate-help { padding: 0 6px; font-size: 11px; }
+.theme .rate-preview { font-size: 0; padding: 0 6px; }
+.theme .rate-preview::after { content: "sample"; font-size: 10px; }
+.theme .done-badge { top: 4px; left: 4px; width: 18px; height: 18px; font-size: 11px; }
+.theme .lesson-grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+@media (max-width: 420px) { .theme .lesson-card { grid-template-columns: 58px 1fr; } }

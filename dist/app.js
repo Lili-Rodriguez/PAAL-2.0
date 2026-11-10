@@ -219,6 +219,7 @@ const LESSONS = [
   }
 ];
 
+window.PaalLearn?.rename(LESSONS); // lessons are shown as "actions" (see learn.js)
 
 // Guided activities below the chat. PAAL walks you through each step.
 // A step lasts `secs` seconds, or `breathe` breathing cycles of 9 seconds
@@ -678,6 +679,7 @@ function signupScreen() {
         <button type="submit" class="btn primary">${editing ? 'Save changes' : 'Start with PAAL'}</button>
       </div>
     </form>
+    ${editing ? '' : '<button type="button" id="skip-signup" class="skip-link">Skip for now</button>'}
   </div>`;
 }
 
@@ -734,6 +736,16 @@ function bindSignup() {
     };
   });
 
+  // "Skip for now": browse with a sample family. Real details can be added later via Edit family.
+  const skip = $('#skip-signup');
+  if (skip) skip.onclick = () => {
+    state.profile = { display_name: 'Guest' };
+    state.family = { name: 'My family', children: [{ id: 'c-guest', nickname: 'My child', age: 3, goals: ['learn'], other_goal: '' }] };
+    save();
+    location.hash = '#home';
+    toast('Browsing as a guest. Add your family any time with Edit family.');
+  };
+
   const cancel = $('#cancel-edit');
   if (cancel) cancel.onclick = () => { location.hash = '#home'; };
 
@@ -779,10 +791,10 @@ function progressRing() {
 }
 
 function progressMessage(done, total) {
-  if (done === 0) return 'You haven’t started any lessons yet. The first one takes about 4 minutes.';
-  if (done === total) return 'You completed every lesson. Amazing work!';
+  if (done === 0) return 'You haven’t tried any actions yet. The first one takes about 4 minutes.';
+  if (done === total) return 'You tried every action. Amazing work!';
   if (done / total >= 0.5) return 'More than halfway there. Keep going!';
-  return 'Great start! Every lesson adds a new idea to your toolbox.';
+  return 'Great start! Every action adds something new to your toolbox.';
 }
 
 // Today's care blocks for every child, earliest first
@@ -894,7 +906,7 @@ function homeScreen() {
             ${LESSONS.map(l => `<li><a class="dot tone-${l.tone} ${isDone(l.id) ? 'done' : ''}" href="#learn/${l.id}"
               title="${esc(l.title)}${isDone(l.id) ? ' (completed)' : ''}"><span class="sr-only">${esc(l.title)}</span></a></li>`).join('')}
           </ul>
-          <a class="btn primary" href="#learn${next ? '/' + next.id : ''}">${next ? 'Next lesson' : 'Review lessons'}</a>
+          <a class="btn primary" href="#learn${next ? '/' + next.id : ''}">${next ? 'Next action' : 'Review actions'}</a>
         </div>
       </section>
 
@@ -934,42 +946,51 @@ function homeScreen() {
 
 /* Learn */
 
+// One lesson card in the Learn list (grouped by theme in learn.js)
+function lessonCard(l) {
+  const cover = window.PaalLearn?.cover(l.id);
+  return `<a class="card lesson-card tone-${l.tone}" href="#learn/${l.id}" ${window.PaalLearn?.attrs(l) || ''}>
+    <div class="lesson-art">${lessonArt(l)}${isDone(l.id) ? '<span class="done-badge">✓</span>' : ''}</div>
+    <div class="lesson-copy">
+      <h2>${l.title}</h2>
+      ${cover ? `<p class="lesson-by"><strong>${esc(cover.short)}</strong> · ${esc(cover.study)}</p>` : ''}
+      <p class="muted">${l.teaser}</p>
+      ${window.PaalLearn?.ratingHtml(l.id) || ''}
+      <div class="lesson-foot">
+        <span>${l.time}</span>
+        <span class="status ${isDone(l.id) ? 'done' : ''}">${isDone(l.id) ? '✓ Tried it' : 'Try it →'}</span>
+      </div>
+    </div>
+  </a>`;
+}
+
 function learnScreen() {
   const done = doneCount(), total = LESSONS.length, pct = Math.round(done / total * 100);
   return `
-    <header class="page-head"><div><p class="eyebrow">Learn</p><h1>Lessons</h1></div></header>
+    <header class="page-head"><div><p class="eyebrow">Learn</p><h1>Actions to try</h1><p class="muted">Short, research-backed things you can do today.</p></div></header>
+
+    ${window.PaalLearn ? PaalLearn.controls() : ''}
 
     <section class="card progress">
-      <div class="progress-label"><span>${done} of ${total} lessons completed</span><span>${pct}%</span></div>
-      <div class="progress-track" role="progressbar" aria-label="Lessons completed"
+      <div class="progress-label"><span>${done} of ${total} actions tried</span><span>${pct}%</span></div>
+      <div class="progress-track" role="progressbar" aria-label="Actions tried"
         aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${done}">
         <div class="progress-fill" style="width: ${pct}%"></div>
       </div>
     </section>
 
-    <div class="lesson-grid">
-      ${LESSONS.map(l => `<a class="card lesson-card tone-${l.tone}" href="#learn/${l.id}">
-        <div class="lesson-art">${lessonArt(l)}${isDone(l.id) ? '<span class="done-badge">✓</span>' : ''}</div>
-        <div class="lesson-copy">
-          <h2>${l.title}</h2>
-          <p class="muted">${l.teaser}</p>
-          <div class="lesson-foot">
-            <span>${l.time}</span>
-            <span class="status ${isDone(l.id) ? 'done' : ''}">${isDone(l.id) ? '✓ Completed' : 'Start →'}</span>
-          </div>
-        </div>
-      </a>`).join('')}
-    </div>`;
+    ${window.PaalLearn ? PaalLearn.themed(LESSONS, lessonCard) : `<div class="lesson-grid">${LESSONS.map(lessonCard).join('')}</div>`}`;
 }
 
 function lessonScreen(lesson) {
+  if (window.PaalLearn?.has(lesson.id)) return PaalLearn.screen(lesson); // interactive cards (learn.js)
   const done = isDone(lesson.id);
   const body = content => Array.isArray(content)
     ? `<ol>${content.map(step => `<li>${step}</li>`).join('')}</ol>`
     : `<p>${content}</p>`;
 
   return `<article class="lesson tone-${lesson.tone}">
-    <a class="back" href="#learn">← All lessons</a>
+    <a class="back" href="#learn">← All actions</a>
     <div class="lesson-hero">${lessonArt(lesson)}</div>
     <p class="eyebrow">${lesson.time} read</p>
     <h1>${lesson.title}</h1>
@@ -983,6 +1004,7 @@ function lessonScreen(lesson) {
 }
 
 function bindLesson(lesson) {
+  if (window.PaalLearn?.has(lesson.id)) return PaalLearn.bind(lesson);
   $('#toggle-complete').onclick = () => {
     state.completed = isDone(lesson.id)
       ? state.completed.filter(id => id !== lesson.id)
